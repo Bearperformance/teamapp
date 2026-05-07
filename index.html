@@ -296,86 +296,59 @@ window.runVerify=function(){
   alert('VERIFY REPORT:\n\n'+report);
 };
 
-// ─── DUPLIKAT-BEREINIGUNG ────────────────────────────────
-window.cleanupDuplicatePlayers = async function() {
-  if(!confirm('Doppelte Spieler aus Firebase löschen?')) return;
-  showLoading('Duplikate werden gesucht…');
-  try {
-    const snap = await fbDb.collection('players').get();
-    const allPlayers = snap.docs.map(d => ({id: d.id, ...d.data()}));
-    const groups = {};
-    for(const p of allPlayers){
-      const key = (p.teamId||'') + '___' + (p.name||'').toLowerCase().trim().replace(/\s+/g,' ');
-      if(!groups[key]) groups[key] = [];
-      groups[key].push(p);
-    }
-    const toDelete = [];
-    for(const [key, group] of Object.entries(groups)){
-      if(group.length <= 1) continue;
-      group.sort((a, b) => {
-        const scoreA = [a.birthdate,a.height,a.weight,a.growthStatus,a.trikot].filter(x=>x&&x!==0&&x!=='').length;
-        const scoreB = [b.birthdate,b.height,b.weight,b.growthStatus,b.trikot].filter(x=>x&&x!==0&&x!=='').length;
-        return scoreB - scoreA;
-      });
-      for(let i=1; i<group.length; i++) toDelete.push(group[i]);
-    }
-    if(toDelete.length === 0){ hideLoading(); showToast('Keine Duplikate gefunden ✓'); return; }
-    const preview = toDelete.slice(0,8).map(p => p.name + ' (' + (getTeam(p.teamId)||{}).name + ')').join(', ');
-    const more = toDelete.length > 8 ? ' ... +' + (toDelete.length - 8) + ' weitere' : '';
-    if(!confirm(toDelete.length + ' Duplikate gefunden: ' + preview + more + '. Jetzt löschen?')){
-      hideLoading(); return;
-    }
-    const deletedIds = new Set(toDelete.map(p => p.id));
-    for(let i=0; i<toDelete.length; i+=400){
-      const batch = fbDb.batch();
-      toDelete.slice(i,i+400).forEach(p => batch.delete(fbDb.collection('players').doc(p.id)));
-      await batch.commit();
-    }
-    const attToDelete = S.attendance.filter(a => deletedIds.has(a.playerId));
-    if(attToDelete.length > 0){
-      for(let i=0; i<attToDelete.length; i+=400){
-        const batch = fbDb.batch();
-        attToDelete.slice(i,i+400).forEach(a => batch.delete(fbDb.collection('attendance').doc(a.id)));
-        await batch.commit();
-      }
-    }
-    S.players = S.players.filter(p => !deletedIds.has(p.id));
-    S.attendance = S.attendance.filter(a => !deletedIds.has(a.playerId));
-    hideLoading();
-    showToast(toDelete.length + ' Duplikate entfernt ✓');
-    renderAdminView('players'); renderPlayersList(); renderDashboard();
-  } catch(e) { hideLoading(); showToast('Fehler: ' + e.message, 'err'); }
-};
-
-
-
-// ─── AUTH ───
+// ─── AUTH (v9.4 robust) ───
 async function doLogin(){
   const u=document.getElementById('login-user').value.trim();
   const p=document.getElementById('login-pass').value;
-  if(!u||!p) return;
+  if(!u||!p){ document.getElementById('login-error').textContent='Bitte Benutzername und Passwort eingeben.'; document.getElementById('login-error').style.display='block'; return; }
+  document.getElementById('login-error').style.display='none';
   showLoading('Anmelden…');
-  await loadAll();
-  const coach=S.coaches.find(c=>c.username===u&&c.password===p);
-  hideLoading();
-  if(!coach){ document.getElementById('login-error').style.display='block'; return; }
-  S.user=coach;
-  document.getElementById('auth-screen').style.display='none';
-  document.getElementById('app').style.display='flex';
-  document.getElementById('hdr-role').textContent=coach.role==='admin'?'Head Coach – Alle Teams':'Trainer – '+(coach.teamIds||[]).map(id=>getTeam(id)?.name||'').join(', ');
-  if(coach.role==='admin') document.getElementById('nav-admin').style.display='flex';
-  const ids=getAccessTeamIds();
-  S.attTeamId=ids[0]; S.playTeamId=ids[0]; S.analyticsTeamId=ids[0];
-  renderDashboard(); renderAttView(); renderPlayersView(); renderAnalytics();
-  if(coach.role==='admin') renderAdminView('teams');
-  // Auto-sync Excel data on admin login
-  if(coach.role==='admin') setupAllTeamsFromExcel();
-  // Auto-setup teams if needed
-  await setupU14IfNeeded();
-  const u17Players=[{"name": "Anton Burger", "birthdate": "2009-04-22", "growthStatus": 0}, {"name": "Jakob Bittschi", "birthdate": "2009-12-25", "growthStatus": 0}, {"name": "Arian Sadiku", "birthdate": "2009-07-15", "growthStatus": 98}, {"name": "Oleksandr Biloblotskyi", "birthdate": "", "growthStatus": 0}, {"name": "Marcel Ebner", "birthdate": "2009-01-05", "growthStatus": 99}, {"name": "Maximilian Perco", "birthdate": "2009-02-02", "growthStatus": 99}, {"name": "Laurence-Sharif Faustmann", "birthdate": "2009-06-09", "growthStatus": 0}, {"name": "Laurenz Fröhlich", "birthdate": "2009-11-04", "growthStatus": 99}, {"name": "Armin Hamann", "birthdate": "2009-03-19", "growthStatus": 99}, {"name": "Kristian Cavic", "birthdate": "2009-08-05", "growthStatus": 100}, {"name": "Oleksii Levchuk", "birthdate": "", "growthStatus": 0}, {"name": "Samuel TW Vötsch", "birthdate": "2009-07-19", "growthStatus": 99}, {"name": "Oliver Juchno", "birthdate": "2009-05-20", "growthStatus": 0}, {"name": "Hendrik Strak", "birthdate": "2009-03-11", "growthStatus": 0}, {"name": "Matthias Ezike", "birthdate": "2009-03-19", "growthStatus": 0}, {"name": "Uros Lacarak", "birthdate": "2009-07-27", "growthStatus": 98}, {"name": "Theodor Parzmayr", "birthdate": "2009-04-01", "growthStatus": 0}, {"name": "Nico Hesse", "birthdate": "2009-10-12", "growthStatus": 98}];
-  await setupTeamPlayers('U17', u17Players, 'U17 Spieler einrichten…');
-  // Add U17 training for today if not exists
-  await setupU17Training();
+  try {
+    // 1) Daten laden mit 12s Timeout (verhindert Endlos-Spinner bei Firebase-Block)
+    const loadWithTimeout = Promise.race([
+      loadAll(),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('Timeout: Firebase nicht erreichbar (Adblocker? Internet?)')), 12000))
+    ]);
+    await loadWithTimeout;
+    // 2) Coach finden
+    const coach=S.coaches.find(c=>c.username===u&&c.password===p);
+    if(!coach){ hideLoading(); document.getElementById('login-error').textContent='Benutzername oder Passwort falsch.'; document.getElementById('login-error').style.display='block'; return; }
+    // 3) UI umschalten
+    S.user=coach;
+    document.getElementById('auth-screen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    document.getElementById('hdr-role').textContent=coach.role==='admin'?'Head Coach – Alle Teams':'Trainer – '+(coach.teamIds||[]).map(id=>getTeam(id)?.name||'').filter(Boolean).join(', ');
+    if(coach.role==='admin') document.getElementById('nav-admin').style.display='flex';
+    // 4) Default-Team setzen (sicher gegen leere Trainer-Teams)
+    const ids=getAccessTeamIds();
+    const firstId = ids[0] || null;
+    S.attTeamId=firstId; S.playTeamId=firstId; S.analyticsTeamId=firstId;
+    // 5) Views rendern – jeder einzeln in try/catch, damit ein Render-Fehler den Login nicht killt
+    [['Dashboard',renderDashboard],['Anwesenheit',renderAttView],['Spieler',renderPlayersView],['Analyse',renderAnalytics]].forEach(([name,fn])=>{
+      try { fn(); } catch(e){ console.error('[Login] Render '+name+' Fehler:', e); }
+    });
+    if(coach.role==='admin'){
+      try { renderAdminView('teams'); } catch(e){ console.error('[Login] Render Admin Fehler:', e); }
+    }
+    hideLoading();
+    // 6) Setup-Aufgaben NICHT-BLOCKIEREND nach erfolgreichem Login (Login-UI ist schon sichtbar)
+    if(coach.role==='admin'){
+      setTimeout(async ()=>{
+        try { await setupAllTeamsFromExcel(); } catch(e){ console.error('[Setup] Excel-Sync Fehler:', e); hideLoading(); }
+        try { await setupU14IfNeeded(); } catch(e){ console.error('[Setup] U14 Fehler:', e); hideLoading(); }
+        try {
+          const u17Players=[{"name": "Anton Burger", "birthdate": "2009-04-22", "growthStatus": 0}, {"name": "Jakob Bittschi", "birthdate": "2009-12-25", "growthStatus": 0}, {"name": "Arian Sadiku", "birthdate": "2009-07-15", "growthStatus": 98}, {"name": "Oleksandr Biloblotskyi", "birthdate": "", "growthStatus": 0}, {"name": "Marcel Ebner", "birthdate": "2009-01-05", "growthStatus": 99}, {"name": "Maximilian Perco", "birthdate": "2009-02-02", "growthStatus": 99}, {"name": "Laurence-Sharif Faustmann", "birthdate": "2009-06-09", "growthStatus": 0}, {"name": "Laurenz Fröhlich", "birthdate": "2009-11-04", "growthStatus": 99}, {"name": "Armin Hamann", "birthdate": "2009-03-19", "growthStatus": 99}, {"name": "Kristian Cavic", "birthdate": "2009-08-05", "growthStatus": 100}, {"name": "Oleksii Levchuk", "birthdate": "", "growthStatus": 0}, {"name": "Samuel TW Vötsch", "birthdate": "2009-07-19", "growthStatus": 99}, {"name": "Oliver Juchno", "birthdate": "2009-05-20", "growthStatus": 0}, {"name": "Hendrik Strak", "birthdate": "2009-03-11", "growthStatus": 0}, {"name": "Matthias Ezike", "birthdate": "2009-03-19", "growthStatus": 0}, {"name": "Uros Lacarak", "birthdate": "2009-07-27", "growthStatus": 98}, {"name": "Theodor Parzmayr", "birthdate": "2009-04-01", "growthStatus": 0}, {"name": "Nico Hesse", "birthdate": "2009-10-12", "growthStatus": 98}];
+          await setupTeamPlayers('U17', u17Players, 'U17 Spieler einrichten…');
+        } catch(e){ console.error('[Setup] U17 Players Fehler:', e); hideLoading(); }
+        try { await setupU17Training(); } catch(e){ console.error('[Setup] U17 Training Fehler:', e); hideLoading(); }
+      }, 100);
+    }
+  } catch(e){
+    console.error('[Login] Fehler:', e);
+    hideLoading();
+    document.getElementById('login-error').textContent='Login-Fehler: '+(e.message||'Unbekannt');
+    document.getElementById('login-error').style.display='block';
+  }
 }
 window.doLogin=doLogin;
 
@@ -2347,7 +2320,6 @@ h1,h2,h3,.logo{font-family:'Barlow Condensed',sans-serif;}
     <!-- ADMIN -->
     <div id="view-admin" class="view">
       <button onclick="runVerify()" style="width:100%;margin-bottom:8px;padding:10px;background:rgba(34,197,94,0.15);border:1.5px solid #22c55e;border-radius:10px;color:#22c55e;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;cursor:pointer">✅ System prüfen</button>
-      <button onclick="cleanupDuplicatePlayers()" style="width:100%;margin-bottom:8px;padding:10px;background:rgba(224,85,85,0.15);border:1.5px solid #e05555;border-radius:10px;color:#ff8080;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;cursor:pointer">🧹 Doppelte Spieler bereinigen</button>
       <button onclick="setupAllTeamsFromExcel()" style="width:100%;margin-bottom:12px;padding:10px;background:rgba(59,130,246,0.15);border:1.5px solid #3b82f6;border-radius:10px;color:#3b82f6;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;cursor:pointer">🔄 Excel-Daten synchronisieren</button>
       <div class="chip-row" id="admin-tabs">
         <div class="chip active" onclick="setAdminTab('teams',this)">Teams</div>
