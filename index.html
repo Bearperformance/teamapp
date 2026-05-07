@@ -298,97 +298,53 @@ window.runVerify=function(){
 
 // ─── DUPLIKAT-BEREINIGUNG ────────────────────────────────
 window.cleanupDuplicatePlayers = async function() {
-  if(!confirm('Doppelte Spieler aus Firebase löschen? Die Firebase-Daten werden direkt bereinigt.')) return;
+  if(!confirm('Doppelte Spieler aus Firebase löschen?')) return;
   showLoading('Duplikate werden gesucht…');
-  
   try {
-    // Alle Spieler aus Firestore laden
     const snap = await fbDb.collection('players').get();
     const allPlayers = snap.docs.map(d => ({id: d.id, ...d.data()}));
-    
-    // Gruppieren nach teamId + Name (normalisiert)
     const groups = {};
     for(const p of allPlayers){
       const key = (p.teamId||'') + '___' + (p.name||'').toLowerCase().trim().replace(/\s+/g,' ');
       if(!groups[key]) groups[key] = [];
       groups[key].push(p);
     }
-    
-    // Duplikate finden: Gruppen mit mehr als 1 Eintrag
     const toDelete = [];
-    let keptCount = 0;
     for(const [key, group] of Object.entries(groups)){
       if(group.length <= 1) continue;
-      // Behalte den Eintrag mit den meisten Daten (höchste Summe von befüllten Feldern)
       group.sort((a, b) => {
         const scoreA = [a.birthdate,a.height,a.weight,a.growthStatus,a.trikot].filter(x=>x&&x!==0&&x!=='').length;
         const scoreB = [b.birthdate,b.height,b.weight,b.growthStatus,b.trikot].filter(x=>x&&x!==0&&x!=='').length;
-        return scoreB - scoreA; // Absteigend: bester zuerst
+        return scoreB - scoreA;
       });
-      // Ersten behalten, Rest löschen
-      keptCount++;
-      for(let i=1; i<group.length; i++){
-        toDelete.push(group[i]);
-      }
+      for(let i=1; i<group.length; i++) toDelete.push(group[i]);
     }
-    
-    if(toDelete.length === 0){
-      hideLoading();
-      showToast('Keine Duplikate gefunden ✓');
-      return;
+    if(toDelete.length === 0){ hideLoading(); showToast('Keine Duplikate gefunden ✓'); return; }
+    const preview = toDelete.slice(0,8).map(p => p.name + ' (' + (getTeam(p.teamId)||{}).name + ')').join(', ');
+    const more = toDelete.length > 8 ? ' ... +' + (toDelete.length - 8) + ' weitere' : '';
+    if(!confirm(toDelete.length + ' Duplikate gefunden: ' + preview + more + '. Jetzt löschen?')){
+      hideLoading(); return;
     }
-    
-    // Confirmation mit Details
-    const names = toDelete.slice(0,10).map(p => `• ${p.name} (${(p.teamId||'').slice(0,8)}…)`).join('
-');
-    const more = toDelete.length > 10 ? `
-…und ${toDelete.length - 10} weitere` : '';
-    if(!confirm(`${toDelete.length} Duplikate gefunden:
-${names}${more}
-
-Jetzt löschen?`)){
-      hideLoading();
-      return;
-    }
-    
-    // Batch-Löschen in Gruppen von 500
-    let deleted = 0;
+    const deletedIds = new Set(toDelete.map(p => p.id));
     for(let i=0; i<toDelete.length; i+=400){
       const batch = fbDb.batch();
-      const chunk = toDelete.slice(i, i+400);
-      for(const p of chunk){
-        batch.delete(fbDb.collection('players').doc(p.id));
-        deleted++;
-      }
+      toDelete.slice(i,i+400).forEach(p => batch.delete(fbDb.collection('players').doc(p.id)));
       await batch.commit();
     }
-    
-    // Auch Attendance-Einträge für gelöschte Spieler entfernen
-    const deletedIds = new Set(toDelete.map(p => p.id));
-    const attBatch = fbDb.batch();
-    let attDeleted = 0;
-    for(const a of S.attendance){
-      if(deletedIds.has(a.playerId)){
-        attBatch.delete(fbDb.collection('attendance').doc(a.id));
-        attDeleted++;
+    const attToDelete = S.attendance.filter(a => deletedIds.has(a.playerId));
+    if(attToDelete.length > 0){
+      for(let i=0; i<attToDelete.length; i+=400){
+        const batch = fbDb.batch();
+        attToDelete.slice(i,i+400).forEach(a => batch.delete(fbDb.collection('attendance').doc(a.id)));
+        await batch.commit();
       }
     }
-    if(attDeleted > 0) await attBatch.commit();
-    
-    // Lokalen State aktualisieren
     S.players = S.players.filter(p => !deletedIds.has(p.id));
     S.attendance = S.attendance.filter(a => !deletedIds.has(a.playerId));
-    
     hideLoading();
-    showToast(`${deleted} Duplikate entfernt ✓ (${attDeleted} Anwesenheiten bereinigt)`);
-    renderAdminView('players');
-    renderPlayersList();
-    renderDashboard();
-    
-  } catch(e) {
-    hideLoading();
-    showToast('Fehler: ' + e.message, 'err');
-  }
+    showToast(toDelete.length + ' Duplikate entfernt ✓');
+    renderAdminView('players'); renderPlayersList(); renderDashboard();
+  } catch(e) { hideLoading(); showToast('Fehler: ' + e.message, 'err'); }
 };
 
 
