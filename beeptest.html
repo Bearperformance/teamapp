@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>20m Shuttle Beep Run Test — Bear Performance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- PDF libs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root{
+    --black:#000;
+    --white:#fff;
+    --grey:#f2f2f2;
+    --line:#e0e0e0;
+    --muted:#777;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Montserrat',-apple-system,BlinkMacSystemFont,sans-serif;
+    background:var(--white);
+    color:var(--black);
+    font-size:16px;
+    -webkit-text-size-adjust:100%;
+    padding-bottom:84px;
+  }
+  /* ---- Header ---- */
+  header{
+    background:var(--black);
+    color:var(--white);
+    padding:12px 16px 14px;
+    text-align:center;
+  }
+  header img{height:34px;width:auto;display:block;margin:0 auto 8px;}
+  header .title{
+    font-weight:800;
+    font-size:18px;
+    line-height:1.2;
+    letter-spacing:.5px;
+    text-transform:uppercase;
+  }
+  header .subtitle{
+    font-weight:500;
+    font-size:12px;
+    color:#bbb;
+    margin-top:4px;
+    letter-spacing:1px;
+  }
+  /* ---- Sections ---- */
+  .wrap{max-width:680px;margin:0 auto;padding:16px;}
+  .card{
+    background:var(--white);
+    border:2px solid var(--black);
+    border-radius:14px;
+    padding:13px;
+    margin-bottom:12px;
+  }
+  .card h2{
+    margin:0 0 10px;
+    font-size:13px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:1.2px;
+  }
+  label{
+    display:block;
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.8px;
+    color:var(--muted);
+    margin:0 0 4px;
+  }
+  input,textarea,select{
+    font-family:inherit;
+    font-size:16px;
+    width:100%;
+    padding:11px 12px;
+    border:1.5px solid var(--line);
+    border-radius:9px;
+    background:var(--white);
+    color:var(--black);
+    outline:none;
+  }
+  input:focus,textarea:focus,select:focus{border-color:var(--black);}
+  textarea{resize:vertical;min-height:60px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .field{margin-bottom:10px;}
+  /* Einklappbarer Bedingungs-Block */
+  .cond-toggle{
+    width:100%;margin-top:10px;
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--grey);border:1.5px solid var(--line);border-radius:9px;
+    padding:10px 12px;
+    font-family:inherit;font-size:12px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.6px;color:var(--muted);
+    cursor:pointer;
+  }
+  .cond-toggle .chev{font-size:13px;transition:transform .15s;}
+  .cond-toggle[aria-expanded="true"] .chev{transform:rotate(180deg);}
+  .cond-body{margin-top:10px;}
+  .field:last-child{margin-bottom:0;}
+
+  /* ---- Athlete rows (kompakt, eine Zeile) ---- */
+  #athletes{display:flex;flex-direction:column;gap:7px;}
+  .athlete{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    border:1.5px solid var(--line);
+    border-radius:10px;
+    padding:5px 7px;
+    background:var(--grey);
+  }
+  .athlete .idx{
+    min-width:20px;height:20px;
+    background:var(--black);color:var(--white);
+    border-radius:50%;
+    font-size:11px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+  .athlete .name{
+    flex:1;min-width:0;
+    background:var(--white);
+    font-size:15px;
+    padding:9px 9px;
+  }
+  .athlete .btn{
+    width:44px;height:44px;flex-shrink:0;
+    border:none;border-radius:9px;
+    background:var(--black);color:var(--white);
+    font-size:25px;font-weight:700;line-height:1;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    user-select:none;
+    transition:transform .05s;
+  }
+  .athlete .btn:active{transform:scale(.9);}
+  .athlete .btn.minus{background:var(--white);color:var(--black);border:2px solid var(--black);}
+  .athlete .val{
+    min-width:52px;
+    text-align:center;
+    background:var(--white);
+    border:2px solid var(--black);
+    border-radius:9px;
+    padding:9px 2px;
+    font-size:21px;font-weight:800;line-height:1;
+    flex-shrink:0;
+  }
+  /* Finish-Button (Test abschliessen) */
+  .athlete .btn.finish{
+    background:var(--white);color:var(--black);
+    border:2px solid var(--black);
+    font-size:19px;
+  }
+  .athlete .btn.finish.active{background:var(--black);color:var(--white);}
+  .athlete .btn:disabled{opacity:.3;pointer-events:none;}
+  /* Abgeschlossener Athlet */
+  .athlete.finished{background:#e9e9e9;}
+  .athlete.finished .val{background:var(--black);color:var(--white);}
+  .athlete.finished .name{color:var(--muted);}
+
+  /* Swipe-nach-links zum Löschen */
+  .athlete-wrap{position:relative;overflow:hidden;border-radius:10px;}
+  .athlete-wrap .athlete{position:relative;z-index:1;will-change:transform;touch-action:pan-y;}
+  .swipe-del{
+    position:absolute;top:0;right:0;height:100%;width:96px;z-index:0;
+    border:none;border-radius:10px;
+    background:#000;color:#fff;
+    font-family:inherit;font-size:12px;font-weight:800;
+    text-transform:uppercase;letter-spacing:.4px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+  }
+  .swipe-del:active{background:#333;}
+
+  /* ---- Add athlete ---- */
+  .add-btn{
+    width:100%;
+    padding:13px;
+    border:2px dashed var(--black);
+    border-radius:12px;
+    background:var(--white);
+    color:var(--black);
+    font-family:inherit;
+    font-size:15px;font-weight:800;
+    text-transform:uppercase;letter-spacing:1px;
+    cursor:pointer;
+    margin-top:10px;
+  }
+  .add-btn:active{background:var(--black);color:var(--white);}
+
+  /* ---- Export bar ---- */
+  .exportbar{
+    position:fixed;left:0;right:0;bottom:0;
+    background:var(--black);
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+    display:flex;gap:10px;
+    max-width:680px;margin:0 auto;
+  }
+  .exportbar button{
+    flex:1;
+    padding:15px 8px;
+    border:none;border-radius:10px;
+    font-family:inherit;
+    font-size:14px;font-weight:800;
+    text-transform:uppercase;letter-spacing:.5px;
+    cursor:pointer;
+  }
+  .exportbar .pdf{background:var(--white);color:var(--black);}
+  .exportbar .csv{background:var(--white);color:var(--black);}
+  .exportbar button:active{opacity:.7;}
+  .hint{font-size:11px;color:var(--muted);margin-top:7px;text-align:center;}
+
+  /* ---- Modal (Doppel-Bestätigung) ---- */
+  .modal-ov{
+    position:fixed;inset:0;z-index:50;
+    background:rgba(0,0,0,.55);
+    display:flex;align-items:center;justify-content:center;
+    padding:24px;
+  }
+  .modal-ov[hidden]{display:none;}
+  .modal{
+    background:var(--white);
+    border:2px solid var(--black);
+    border-radius:16px;
+    padding:20px;
+    width:100%;max-width:340px;
+    text-align:center;
+  }
+  .modal-title{font-size:16px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
+  .modal-msg{font-size:14px;color:#333;margin-bottom:18px;line-height:1.4;}
+  .modal-actions{display:flex;gap:10px;}
+  .modal-actions button{
+    flex:1;padding:13px 8px;border-radius:10px;
+    font-family:inherit;font-size:14px;font-weight:800;
+    text-transform:uppercase;letter-spacing:.4px;cursor:pointer;
+  }
+  .m-cancel{background:var(--white);color:var(--black);border:2px solid var(--black);}
+  .m-ok{background:var(--black);color:var(--white);border:2px solid var(--black);}
+  .m-ok.armed{animation:pulse .6s infinite alternate;}
+  @keyframes pulse{from{opacity:1;}to{opacity:.55;}}
+</style>
+</head>
+<body>
+
+<header>
+  <img id="hdrLogo" src="assets/logo-horizontal-white.png" alt="Bear Performance">
+  <div class="title">20m Shuttle Beep Run Test</div>
+  <div class="subtitle">BEAR PERFORMANCE</div>
+</header>
+
+<div class="wrap">
+
+  <!-- Bedingungen -->
+  <div class="card">
+    <div class="field" style="margin-bottom:0;">
+      <label for="gTeam">Mannschaft (global)</label>
+      <input id="gTeam" list="teams" placeholder="z. B. U14" autocomplete="off">
+      <datalist id="teams">
+        <option value="U10"><option value="U11"><option value="U12">
+        <option value="U13"><option value="U14"><option value="U15">
+        <option value="U16"><option value="U17"><option value="U18">
+      </datalist>
+    </div>
+
+    <button type="button" class="cond-toggle" id="condToggle" aria-expanded="false">
+      <span id="condSummary">Datum · Uhrzeit · Temperatur · Notizen</span>
+      <span class="chev" id="condChev">▾</span>
+    </button>
+
+    <div id="condBody" class="cond-body" hidden>
+      <div class="field">
+        <label for="gDate">Datum</label>
+        <input id="gDate" type="date">
+      </div>
+      <div class="grid2" style="margin-bottom:10px;">
+        <div>
+          <label for="gTime">Uhrzeit</label>
+          <input id="gTime" type="time">
+        </div>
+        <div>
+          <label for="gTemp">Temperatur °C</label>
+          <input id="gTemp" type="number" inputmode="decimal" placeholder="z. B. 18">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0;">
+        <label for="gNotes">Besondere Bedingungen / Notizen</label>
+        <input id="gNotes" type="text" placeholder="z. B. nasser Platz, Wind, Halle …">
+      </div>
+    </div>
+  </div>
+
+  <!-- Athleten -->
+  <div class="card">
+    <h2>Athleten</h2>
+    <div id="athletes"></div>
+    <button class="add-btn" id="addBtn">+ Athlet hinzufügen</button>
+    <div class="hint">Start 10,0 · Schritte 0,5 · Wert = km/h</div>
+  </div>
+
+</div>
+
+<div class="exportbar">
+  <button class="pdf" id="pdfBtn">📄 PDF</button>
+  <button class="csv" id="csvBtn">📊 CSV</button>
+</div>
+
+<!-- Doppel-Bestätigung-Modal -->
+<div id="modal" class="modal-ov" hidden>
+  <div class="modal">
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-msg" id="modalMsg"></div>
+    <div class="modal-actions">
+      <button id="modalCancel" class="m-cancel">Abbrechen</button>
+      <button id="modalOk" class="m-ok">Bestätigen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var START = 10.0;
+  var STEP  = 0.5;
+  var MIN   = 10.0;   // unterhalb des Startwerts nicht sinnvoll
+  var athletes = []; // {id, name, team, value}
+  var seq = 0;
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  function fmt(v){ return v.toFixed(1).replace('.', ','); } // 10,0
+
+  // ---- Athleten-Rendering ----
+  function render(){
+    var box = $('athletes');
+    box.innerHTML = '';
+    athletes.forEach(function(a, i){
+      var wrap = document.createElement('div');
+      wrap.className = 'athlete-wrap';
+      wrap.innerHTML =
+        '<button class="swipe-del" title="Löschen">🗑 Löschen</button>'+
+        '<div class="athlete'+(a.finished?' finished':'')+'">'+
+          '<span class="idx">'+(i+1)+'</span>'+
+          '<input class="name" type="text" placeholder="Name" value="'+escAttr(a.name)+'">'+
+          '<button class="btn minus" aria-label="minus"'+(a.finished?' disabled':'')+'>−</button>'+
+          '<span class="val num">'+fmt(a.value)+'</span>'+
+          '<button class="btn plus" aria-label="plus"'+(a.finished?' disabled':'')+'>+</button>'+
+          '<button class="btn finish'+(a.finished?' active':'')+'" aria-label="abschliessen" title="Test abschliessen">'+(a.finished?'✓':'🏁')+'</button>'+
+        '</div>';
+
+      var el = wrap.querySelector('.athlete');
+
+      el.querySelector('.name').addEventListener('input', function(e){ a.name = e.target.value; });
+      el.querySelector('.plus').addEventListener('click', function(){
+        if(a.finished) return;
+        a.value = Math.round((a.value + STEP) * 10) / 10;
+        updateVal(el, a);
+      });
+      el.querySelector('.minus').addEventListener('click', function(){
+        if(a.finished) return;
+        a.value = Math.round((a.value - STEP) * 10) / 10; // keine Untergrenze
+        updateVal(el, a);
+      });
+      el.querySelector('.finish').addEventListener('click', function(){
+        a.finished = !a.finished;
+        render();
+      });
+      wrap.querySelector('.swipe-del').addEventListener('click', function(){
+        confirmDelete(a);
+      });
+
+      attachSwipe(wrap, el);
+      box.appendChild(wrap);
+    });
+  }
+
+  function updateVal(el, a){
+    el.querySelector('.num').textContent = fmt(a.value);
+  }
+
+  // ---- Wisch-nach-links zum Löschen ----
+  var OPEN_X = -96;
+  function closeAllSwipes(except){
+    document.querySelectorAll('.athlete-wrap .athlete').forEach(function(el){
+      if(el !== except){ el.style.transition='transform .18s'; el.style.transform='translateX(0)'; el.dataset.open='0'; }
+    });
+  }
+  function attachSwipe(wrap, el){
+    var startX=0, startY=0, baseX=0, dragging=false, decided=false, horiz=false;
+    el.dataset.open='0';
+    el.addEventListener('touchstart', function(e){
+      if(e.touches.length>1) return;
+      startX=e.touches[0].clientX; startY=e.touches[0].clientY;
+      baseX = el.dataset.open==='1' ? OPEN_X : 0;
+      dragging=true; decided=false; horiz=false;
+      el.style.transition='none';
+    }, {passive:true});
+    el.addEventListener('touchmove', function(e){
+      if(!dragging) return;
+      var dx=e.touches[0].clientX-startX, dy=e.touches[0].clientY-startY;
+      if(!decided){
+        if(Math.abs(dx)>8 || Math.abs(dy)>8){ decided=true; horiz=Math.abs(dx)>Math.abs(dy); }
+      }
+      if(!horiz) return;
+      e.preventDefault();
+      var tx=Math.max(OPEN_X, Math.min(0, baseX+dx));
+      el.style.transform='translateX('+tx+'px)';
+    }, {passive:false});
+    function end(){
+      if(!dragging) return;
+      dragging=false;
+      var m=/translateX\((-?\d+(?:\.\d+)?)px\)/.exec(el.style.transform);
+      var cur=m?parseFloat(m[1]):0;
+      var open = cur < OPEN_X/2;
+      el.style.transition='transform .18s';
+      el.style.transform='translateX('+(open?OPEN_X:0)+'px)';
+      el.dataset.open=open?'1':'0';
+      if(open) closeAllSwipes(el);
+    }
+    el.addEventListener('touchend', end);
+    el.addEventListener('touchcancel', end);
+  }
+
+  function confirmDelete(a){
+    var nm = a.name.trim() || 'dieser Athlet';
+    doubleConfirm({
+      title:'Athlet löschen',
+      message:'„'+nm+'" wirklich löschen?',
+      confirm:'Löschen',
+      confirm2:'Endgültig löschen — nochmal tippen',
+      danger:true
+    }).then(function(ok){
+      if(ok){
+        athletes = athletes.filter(function(x){ return x.id !== a.id; });
+        render();
+      } else {
+        closeAllSwipes(null);
+      }
+    });
+  }
+
+  function addAthlete(){
+    athletes.push({ id: ++seq, name:'', team:'', value:START, finished:false });
+    render();
+    // Fokus auf neues Namensfeld
+    var inputs = document.querySelectorAll('.athlete .name');
+    if(inputs.length){ inputs[inputs.length-1].focus(); }
+  }
+
+  function escAttr(s){ return (s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+  // ---- Meta einlesen ----
+  function meta(){
+    var d = $('gDate').value;
+    var dateStr = d ? d.split('-').reverse().join('.') : '';
+    return {
+      team:  $('gTeam').value.trim(),
+      date:  dateStr,
+      time:  $('gTime').value.trim(),
+      temp:  $('gTemp').value.trim(),
+      notes: $('gNotes').value.trim()
+    };
+  }
+
+  function rows(){
+    var m = meta();
+    return athletes.map(function(a){
+      return {
+        name: a.name.trim() || '—',
+        team: (m.team || '—'),
+        value: fmt(a.value)
+      };
+    });
+  }
+
+  function validate(){
+    if(athletes.length === 0){ alert('Bitte zuerst mindestens einen Athleten hinzufügen.'); return false; }
+    return true;
+  }
+
+  // ---- Doppel-Bestätigung (Zwei-Stufen-Modal) ----
+  function doubleConfirm(opts){
+    return new Promise(function(resolve){
+      var ov = $('modal');
+      var ok = $('modalOk'), cancel = $('modalCancel');
+      $('modalTitle').textContent = opts.title || 'Bestätigen';
+      $('modalMsg').textContent = opts.message || '';
+      ok.textContent = opts.confirm || 'Bestätigen';
+      ok.className = 'm-ok' + (opts.danger ? ' danger' : '');
+      var stage = 1;
+      ov.hidden = false;
+
+      function cleanup(){
+        ov.hidden = true;
+        ok.onclick = null; cancel.onclick = null; ov.onclick = null;
+      }
+      ok.onclick = function(){
+        if(stage === 1){
+          stage = 2;
+          ok.textContent = opts.confirm2 || 'Wirklich? — nochmal tippen';
+          ok.classList.add('armed');
+        } else {
+          cleanup(); resolve(true);
+        }
+      };
+      cancel.onclick = function(){ cleanup(); resolve(false); };
+      ov.onclick = function(e){ if(e.target === ov){ cleanup(); resolve(false); } };
+    });
+  }
+
+  // ---- CSV ----
+  function exportCSV(){
+    if(!validate()) return;
+    doubleConfirm({
+      title:'CSV erstellen',
+      message:'CSV-Datei jetzt erzeugen?',
+      confirm:'CSV erstellen',
+      confirm2:'Wirklich erstellen — nochmal tippen'
+    }).then(function(ok){ if(ok) buildCSV(); });
+  }
+  function buildCSV(){
+    var m = meta();
+    var sep = ';';
+    var L = [];
+    L.push('20m Shuttle Beep Run Test');
+    L.push('Mannschaft (global)'+sep+ csv(m.team));
+    L.push('Datum'+sep+ csv(m.date));
+    L.push('Uhrzeit'+sep+ csv(m.time));
+    L.push('Temperatur (°C)'+sep+ csv(m.temp));
+    L.push('Besondere Bedingungen'+sep+ csv(m.notes));
+    L.push('');
+    L.push(['Name','Mannschaft','Geschwindigkeit (km/h)'].join(sep));
+    rows().forEach(function(r){
+      L.push([csv(r.name), csv(r.team), csv(r.value)].join(sep));
+    });
+    var content = '﻿' + L.join('\r\n'); // BOM für Umlaute in Excel
+    download(new Blob([content], {type:'text/csv;charset=utf-8;'}), filename('csv'));
+  }
+
+  function csv(v){
+    v = (v==null)?'':String(v);
+    if(/[";\r\n]/.test(v)){ v = '"' + v.replace(/"/g,'""') + '"'; }
+    return v;
+  }
+
+  // ---- PDF ----
+  function exportPDF(){
+    if(!validate()) return;
+    doubleConfirm({
+      title:'PDF erstellen',
+      message:'PDF-Datei jetzt erzeugen?',
+      confirm:'PDF erstellen',
+      confirm2:'Wirklich erstellen — nochmal tippen'
+    }).then(function(ok){ if(ok) buildPDF(); });
+  }
+  function buildPDF(){
+    var m = meta();
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({unit:'mm', format:'a4'});
+    var pw = doc.internal.pageSize.getWidth();
+    var ML = 15;
+    var y = 14;
+
+    // Logo (schwarz, auf weiß)
+    if(logoData){
+      var lw = 50, lh = lw * (750/1920);
+      doc.addImage(logoData, 'PNG', (pw-lw)/2, y, lw, lh);
+      y += lh + 6;
+    } else {
+      y += 4;
+    }
+
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(15);
+    doc.setTextColor(0,0,0);
+    doc.text('20m Shuttle Beep Run Test', pw/2, y, {align:'center'});
+    y += 9;
+
+    // Bedingungen-Block
+    doc.setDrawColor(0); doc.setLineWidth(0.4);
+    doc.line(ML, y, pw-ML, y); y += 6;
+
+    doc.setFontSize(10);
+    function metaLine(lbl, val){
+      doc.setFont('helvetica','bold'); doc.text(lbl, ML, y);
+      doc.setFont('helvetica','normal'); doc.text(val||'—', ML+42, y);
+      y += 6;
+    }
+    metaLine('Mannschaft:', m.team);
+    metaLine('Datum:', m.date);
+    metaLine('Uhrzeit:', m.time);
+    metaLine('Temperatur:', m.temp ? (m.temp+' °C') : '');
+    // Notizen ggf. mehrzeilig
+    doc.setFont('helvetica','bold'); doc.text('Bedingungen:', ML, y);
+    doc.setFont('helvetica','normal');
+    var noteLines = doc.splitTextToSize(m.notes || '—', pw - ML - ML - 42);
+    doc.text(noteLines, ML+42, y);
+    y += Math.max(6, noteLines.length*5) + 2;
+
+    doc.line(ML, y, pw-ML, y); y += 4;
+
+    // Tabelle
+    doc.autoTable({
+      startY: y,
+      head: [['#','Name','Mannschaft','Geschwindigkeit (km/h)']],
+      body: rows().map(function(r,i){ return [String(i+1), r.name, r.team, r.value]; }),
+      theme:'grid',
+      styles:{ font:'helvetica', fontSize:10, textColor:[0,0,0], lineColor:[0,0,0], lineWidth:0.2, cellPadding:2.5 },
+      headStyles:{ fillColor:[0,0,0], textColor:[255,255,255], fontStyle:'bold' },
+      alternateRowStyles:{ fillColor:[245,245,245] },
+      columnStyles:{ 0:{cellWidth:12, halign:'center'}, 3:{halign:'center', fontStyle:'bold'} },
+      margin:{left:ML, right:ML}
+    });
+
+    // Footer
+    var fy = doc.internal.pageSize.getHeight() - 8;
+    doc.setFontSize(8); doc.setTextColor(120);
+    doc.text('Bear Performance — erstellt am '+ nowStamp(), pw/2, fy, {align:'center'});
+
+    doc.save(filename('pdf'));
+  }
+
+  // ---- Helpers ----
+  function filename(ext){
+    var m = meta();
+    var clean = function(s){ return (s||'').replace(/[^\wÄÖÜäöüß.\-]+/g,'_').replace(/^_+|_+$/g,''); };
+    var t = clean(m.team) || 'Mannschaft';
+    var d = (m.date || 'Datum').replace(/\./g,'-');   // 27.06.2026 -> 27-06-2026
+    var u = (m.time || '').replace(/:/g,'-') || 'Uhrzeit'; // 09:05 -> 09-05
+    return 'beeptest-'+t+'-'+d+'-'+u+'.'+ext;
+  }
+  function nowStamp(){
+    var n = new Date();
+    function p(x){ return (x<10?'0':'')+x; }
+    return p(n.getDate())+'.'+p(n.getMonth()+1)+'.'+n.getFullYear()+' '+p(n.getHours())+':'+p(n.getMinutes());
+  }
+  function download(blob, name){
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+  }
+
+  // ---- Logo für PDF (schwarz) als base64 vorladen ----
+  var logoData = null;
+  (function loadLogo(){
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function(){
+      try{
+        var maxW = 600; // herunterskalieren -> kleineres PDF
+        var scale = Math.min(1, maxW / img.naturalWidth);
+        var c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * scale);
+        c.height = Math.round(img.naturalHeight * scale);
+        var ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        logoData = c.toDataURL('image/png');
+      }catch(e){ logoData = null; } // file:// CORS -> PDF ohne Logo
+    };
+    img.onerror = function(){ logoData = null; };
+    img.src = 'assets/logo-horizontal-black.png';
+  })();
+
+  // ---- Init ----
+  function initDateTime(){
+    var n = new Date();
+    function p(x){ return (x<10?'0':'')+x; }
+    $('gDate').value = n.getFullYear()+'-'+p(n.getMonth()+1)+'-'+p(n.getDate());
+    $('gTime').value = p(n.getHours())+':'+p(n.getMinutes());
+  }
+
+  // Bedingungen ein-/ausklappen
+  function updateCondSummary(){
+    var m = meta();
+    var parts = [];
+    if(m.date) parts.push(m.date);
+    if(m.time) parts.push(m.time + ' Uhr');
+    if(m.temp) parts.push(m.temp + ' °C');
+    if(m.notes) parts.push(m.notes);
+    $('condSummary').textContent = parts.length ? parts.join('  ·  ') : 'Datum · Uhrzeit · Temperatur · Notizen';
+  }
+  $('condToggle').addEventListener('click', function(){
+    var body = $('condBody');
+    var open = body.hidden;
+    body.hidden = !open;
+    this.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if(!open) updateCondSummary(); // beim Zuklappen Zusammenfassung aktualisieren
+  });
+
+  $('addBtn').addEventListener('click', addAthlete);
+  $('pdfBtn').addEventListener('click', exportPDF);
+  $('csvBtn').addEventListener('click', exportCSV);
+
+  initDateTime();
+  updateCondSummary(); // zeigt das vorbefüllte Datum/Uhrzeit im eingeklappten Zustand
+  for(var k=0; k<5; k++){ athletes.push({ id: ++seq, name:'', team:'', value:START }); }
+  render(); // mit 5 Athleten starten (erweiterbar bis 7+)
+})();
+</script>
+</body>
+</html>
