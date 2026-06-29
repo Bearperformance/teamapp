@@ -40,7 +40,7 @@
     color:var(--black);
     font-size:16px;
     -webkit-text-size-adjust:100%;
-    padding-bottom:84px;
+    padding-bottom:150px;
   }
   /* ---- Header ---- */
   header{
@@ -250,6 +250,11 @@
   .exportbar .pdf{background:var(--white);color:var(--black);}
   .exportbar .csv{background:var(--white);color:var(--black);}
   .exportbar .arch{background:var(--white);color:var(--black);}
+  .exportbar .reset{
+    width:100%;background:transparent;color:var(--white);
+    border:2px solid #888;font-size:12px;padding:11px 8px;
+  }
+  .exportbar .reset:active{background:#fff;color:var(--black);}
   .exportbar button:active{opacity:.7;}
   .hint{font-size:11px;color:var(--muted);margin-top:7px;text-align:center;}
 
@@ -324,7 +329,7 @@
 <header>
   <img id="hdrLogo" src="assets/logo-horizontal-white.png" alt="Bear Performance">
   <div class="title">20m Shuttle Beep Run Test</div>
-  <div class="subtitle">BEAR PERFORMANCE <span class="ver">v1.1</span></div>
+  <div class="subtitle">BEAR PERFORMANCE <span class="ver">v1.2</span></div>
 </header>
 
 <div class="wrap">
@@ -392,6 +397,7 @@
     <button class="csv" id="csvBtn">📊 CSV</button>
     <button class="arch" id="archBtn">🗄 Archiv</button>
   </div>
+  <button class="reset" id="resetBtn">↺ Zurücksetzen</button>
 </div>
 
 <!-- Doppel-Bestätigung-Modal -->
@@ -624,6 +630,27 @@
   function escAttr(s){ return (s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
   function escHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+  // ---- Zurücksetzen (auf 0 / neuer Test) ----
+  function resetApp(){
+    athletes = [];
+    for(var i=0;i<5;i++){ athletes.push({ id: ++seq, name:'', team:'', value:START, finished:false, aborted:false, abortNote:'' }); }
+    lead = ''; helpers = '';
+    $('gTeam').value = ''; $('gTemp').value = ''; $('gNotes').value = '';
+    initDateTime();        // Datum/Uhrzeit neu setzen
+    updateCondSummary();
+    render();
+    window.scrollTo(0, 0); // Archiv/Log bleiben erhalten
+  }
+  function confirmReset(){
+    doubleConfirm({
+      title:'Zurücksetzen',
+      message:'Alle Eingaben löschen und neu beginnen? Gespeicherte Tests im Archiv bleiben erhalten.',
+      confirm:'Zurücksetzen',
+      confirm2:'Wirklich alles löschen — nochmal tippen',
+      danger:true
+    }).then(function(ok){ if(ok) resetApp(); });
+  }
+
   // ---- Test speichern (Testleiter/Gehilfen abfragen -> Firestore) ----
   function openSaveModal(){
     if(!validate()) return;
@@ -668,6 +695,7 @@
       savedTests.unshift(rec);
       renderLog();
       closeSaveModal();
+      resetApp(true); // nach dem Speichern automatisch auf 0
     }
 
     if(fbDb){
@@ -1046,6 +1074,9 @@
   $('abortOk').addEventListener('click', doAbort);
   $('abortCancel').addEventListener('click', closeAbortModal);
   $('abortModal').addEventListener('click', function(e){ if(e.target === this) closeAbortModal(); });
+
+  // Reset
+  $('resetBtn').addEventListener('click', confirmReset);
 
   // Archiv-Modal
   $('archBtn').addEventListener('click', openArchive);
