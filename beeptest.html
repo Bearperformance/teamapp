@@ -187,19 +187,29 @@
   .athlete.finished{background:#e9e9e9;}
   .athlete.finished .val{background:var(--black);color:var(--white);}
   .athlete.finished .name{color:var(--muted);}
+  /* Abgebrochener Athlet */
+  .athlete.aborted{background:#e9e9e9;}
+  .athlete.aborted .name{color:var(--muted);text-decoration:line-through;}
+  .athlete.aborted .val{background:var(--white);color:var(--muted);border-style:dashed;}
+  .athlete.aborted .btn.finish.active{background:var(--black);color:var(--white);}
 
-  /* Swipe-nach-links zum Löschen */
+  /* Swipe-nach-links: Abbruch + Löschen */
   .athlete-wrap{position:relative;overflow:hidden;border-radius:10px;}
   .athlete-wrap .athlete{position:relative;z-index:1;will-change:transform;touch-action:pan-y;}
-  .swipe-del{
-    position:absolute;top:0;right:0;height:100%;width:96px;z-index:0;
-    border:none;border-radius:10px;
-    background:#000;color:#fff;
-    font-family:inherit;font-size:12px;font-weight:800;
-    text-transform:uppercase;letter-spacing:.4px;
-    display:flex;align-items:center;justify-content:center;
-    cursor:pointer;
+  .swipe-actions{
+    position:absolute;top:0;right:0;height:100%;width:176px;z-index:0;
+    display:flex;
   }
+  .swipe-actions button{
+    flex:1;border:none;
+    font-family:inherit;font-size:11px;font-weight:800;
+    text-transform:uppercase;letter-spacing:.3px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;color:#fff;line-height:1.1;text-align:center;
+  }
+  .swipe-abort{background:#555;}
+  .swipe-abort:active{background:#777;}
+  .swipe-del{background:#000;border-radius:0 10px 10px 0;}
   .swipe-del:active{background:#333;}
 
   /* ---- Add athlete ---- */
@@ -239,6 +249,7 @@
   .exportbar .save{background:var(--black);color:var(--white);width:100%;border:2px solid var(--white);}
   .exportbar .pdf{background:var(--white);color:var(--black);}
   .exportbar .csv{background:var(--white);color:var(--black);}
+  .exportbar .arch{background:var(--white);color:var(--black);}
   .exportbar button:active{opacity:.7;}
   .hint{font-size:11px;color:var(--muted);margin-top:7px;text-align:center;}
 
@@ -280,7 +291,32 @@
   .m-cancel{background:var(--white);color:var(--black);border:2px solid var(--black);}
   .m-ok{background:var(--black);color:var(--white);border:2px solid var(--black);}
   .m-ok.armed{animation:pulse .6s infinite alternate;}
+  .m-ok.danger{background:#000;}
   @keyframes pulse{from{opacity:1;}to{opacity:.55;}}
+
+  /* ---- Archiv-Modal ---- */
+  .modal-wide{max-width:440px;}
+  .archive-list{
+    text-align:left;max-height:60vh;overflow-y:auto;
+    display:flex;flex-direction:column;gap:8px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .arch-item{
+    border:1.5px solid var(--line);border-radius:10px;
+    padding:10px 12px;background:var(--grey);
+  }
+  .arch-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:3px;}
+  .arch-team{font-size:15px;font-weight:800;}
+  .arch-when{font-size:11px;color:var(--muted);white-space:nowrap;}
+  .arch-meta{font-size:12px;color:#555;line-height:1.4;margin-bottom:8px;}
+  .arch-actions{display:flex;gap:8px;}
+  .arch-actions button{
+    flex:1;padding:9px 6px;border-radius:8px;
+    border:1.5px solid var(--black);background:var(--white);color:var(--black);
+    font-family:inherit;font-size:12px;font-weight:800;
+    text-transform:uppercase;letter-spacing:.3px;cursor:pointer;
+  }
+  .arch-actions button:active{background:#000;color:#fff;}
 </style>
 </head>
 <body>
@@ -288,7 +324,7 @@
 <header>
   <img id="hdrLogo" src="assets/logo-horizontal-white.png" alt="Bear Performance">
   <div class="title">20m Shuttle Beep Run Test</div>
-  <div class="subtitle">BEAR PERFORMANCE <span class="ver">v1.0</span></div>
+  <div class="subtitle">BEAR PERFORMANCE <span class="ver">v1.1</span></div>
 </header>
 
 <div class="wrap">
@@ -354,6 +390,7 @@
   <div class="exportrow">
     <button class="pdf" id="pdfBtn">📄 PDF</button>
     <button class="csv" id="csvBtn">📊 CSV</button>
+    <button class="arch" id="archBtn">🗄 Archiv</button>
   </div>
 </div>
 
@@ -389,6 +426,34 @@
   </div>
 </div>
 
+<!-- Abbruch-Modal (Notiz) -->
+<div id="abortModal" class="modal-ov" hidden>
+  <div class="modal">
+    <div class="modal-title">Abbruch</div>
+    <div class="modal-msg" id="abortWho" style="margin-bottom:12px;"></div>
+    <div class="field" style="text-align:left;margin-bottom:14px;">
+      <label for="mAbortNote">Notiz zum Abbruch</label>
+      <textarea id="mAbortNote" rows="3" placeholder="z. B. Verletzung, vorzeitig aufgegeben, Krämpfe …"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button id="abortCancel" class="m-cancel">Zurück</button>
+      <button id="abortOk" class="m-ok danger">Abbruch setzen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Archiv-Modal (alte Tests aus Firestore) -->
+<div id="archiveModal" class="modal-ov" hidden>
+  <div class="modal modal-wide">
+    <div class="modal-title">Archiv — gespeicherte Tests</div>
+    <div id="archiveList" class="archive-list"></div>
+    <div class="modal-actions" style="margin-top:14px;">
+      <button id="archiveClose" class="m-cancel">Schließen</button>
+      <button id="archiveReload" class="m-ok">Neu laden</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   "use strict";
@@ -411,35 +476,48 @@
     var box = $('athletes');
     box.innerHTML = '';
     athletes.forEach(function(a, i){
+      var locked = a.finished || a.aborted;
+      var cls = a.aborted ? ' aborted' : (a.finished ? ' finished' : '');
+      var finBtn = a.aborted ? '⛔' : (a.finished ? '✓' : '🏁');
+      var finCls = (a.finished || a.aborted) ? ' active' : '';
+
       var wrap = document.createElement('div');
       wrap.className = 'athlete-wrap';
       wrap.innerHTML =
-        '<button class="swipe-del" title="Löschen">🗑 Löschen</button>'+
-        '<div class="athlete'+(a.finished?' finished':'')+'">'+
+        '<div class="swipe-actions">'+
+          '<button class="swipe-abort" title="Abbruch">⛔ Abbruch</button>'+
+          '<button class="swipe-del" title="Löschen">🗑 Löschen</button>'+
+        '</div>'+
+        '<div class="athlete'+cls+'">'+
           '<span class="idx">'+(i+1)+'</span>'+
           '<input class="name" type="text" placeholder="Name" value="'+escAttr(a.name)+'">'+
-          '<button class="btn minus" aria-label="minus"'+(a.finished?' disabled':'')+'>−</button>'+
+          '<button class="btn minus" aria-label="minus"'+(locked?' disabled':'')+'>−</button>'+
           '<span class="val num">'+fmt(a.value)+'</span>'+
-          '<button class="btn plus" aria-label="plus"'+(a.finished?' disabled':'')+'>+</button>'+
-          '<button class="btn finish'+(a.finished?' active':'')+'" aria-label="abschliessen" title="Test abschliessen">'+(a.finished?'✓':'🏁')+'</button>'+
+          '<button class="btn plus" aria-label="plus"'+(locked?' disabled':'')+'>+</button>'+
+          '<button class="btn finish'+finCls+'" aria-label="abschliessen" title="Test abschliessen">'+finBtn+'</button>'+
         '</div>';
 
       var el = wrap.querySelector('.athlete');
 
       el.querySelector('.name').addEventListener('input', function(e){ a.name = e.target.value; });
       el.querySelector('.plus').addEventListener('click', function(){
-        if(a.finished) return;
+        if(a.finished || a.aborted) return;
         a.value = Math.round((a.value + STEP) * 10) / 10;
         updateVal(el, a);
       });
       el.querySelector('.minus').addEventListener('click', function(){
-        if(a.finished) return;
+        if(a.finished || a.aborted) return;
         a.value = Math.round((a.value - STEP) * 10) / 10; // keine Untergrenze
         updateVal(el, a);
       });
       el.querySelector('.finish').addEventListener('click', function(){
+        // Abschliessen schaltet um; hebt einen Abbruch auf
+        a.aborted = false; a.abortNote = '';
         a.finished = !a.finished;
         render();
+      });
+      wrap.querySelector('.swipe-abort').addEventListener('click', function(){
+        openAbortModal(a);
       });
       wrap.querySelector('.swipe-del').addEventListener('click', function(){
         confirmDelete(a);
@@ -454,8 +532,8 @@
     el.querySelector('.num').textContent = fmt(a.value);
   }
 
-  // ---- Wisch-nach-links zum Löschen ----
-  var OPEN_X = -96;
+  // ---- Wisch-nach-links: Abbruch + Löschen ----
+  var OPEN_X = -176;
   function closeAllSwipes(except){
     document.querySelectorAll('.athlete-wrap .athlete').forEach(function(el){
       if(el !== except){ el.style.transition='transform .18s'; el.style.transform='translateX(0)'; el.dataset.open='0'; }
@@ -515,8 +593,28 @@
     });
   }
 
+  // ---- Abbruch (mit Notiz) ----
+  var abortTarget = null;
+  function openAbortModal(a){
+    abortTarget = a;
+    $('abortWho').textContent = '„'+(a.name.trim() || 'dieser Athlet')+'" — bei '+fmt(a.value)+' km/h';
+    $('mAbortNote').value = a.abortNote || '';
+    $('abortModal').hidden = false;
+    setTimeout(function(){ $('mAbortNote').focus(); }, 50);
+  }
+  function closeAbortModal(){ $('abortModal').hidden = true; abortTarget = null; closeAllSwipes(null); }
+  function doAbort(){
+    if(!abortTarget) return;
+    abortTarget.aborted = true;
+    abortTarget.finished = false;
+    abortTarget.abortNote = $('mAbortNote').value.trim();
+    $('abortModal').hidden = true;
+    abortTarget = null;
+    render();
+  }
+
   function addAthlete(){
-    athletes.push({ id: ++seq, name:'', team:'', value:START, finished:false });
+    athletes.push({ id: ++seq, name:'', team:'', value:START, finished:false, aborted:false, abortNote:'' });
     render();
     // Fokus auf neues Namensfeld
     var inputs = document.querySelectorAll('.athlete .name');
@@ -529,6 +627,11 @@
   // ---- Test speichern (Testleiter/Gehilfen abfragen -> Firestore) ----
   function openSaveModal(){
     if(!validate()) return;
+    var offen = athletes.filter(function(a){ return !a.finished && !a.aborted; });
+    if(offen.length){
+      alert('Bitte zuerst ALLE Athleten abschließen (🏁) oder auf Abbruch setzen (nach links wischen).\n\nNoch offen: '+offen.length+' von '+athletes.length+'.');
+      return;
+    }
     $('mLeader').value = lead;
     $('mHelpers').value = helpers;
     $('saveStatus').textContent = '';
@@ -550,7 +653,8 @@
       temp: m.temp || '', notes: m.notes || '',
       lead: lead, helpers: helpers,
       athletes: athletes.map(function(a){
-        return { name: a.name.trim(), value: a.value, speed: fmt(a.value), finished: !!a.finished };
+        return { name: a.name.trim(), value: a.value, speed: fmt(a.value),
+                 finished: !!a.finished, aborted: !!a.aborted, abortNote: a.aborted ? (a.abortNote||'') : '' };
       }),
       savedAt: new Date().toISOString()
     };
@@ -601,6 +705,63 @@
     });
   }
 
+  // ---- Archiv (alte Tests aus Firestore laden + re-download) ----
+  var archiveRecords = [];
+  function openArchive(){
+    $('archiveModal').hidden = false;
+    loadArchive();
+  }
+  function closeArchive(){ $('archiveModal').hidden = true; }
+  function loadArchive(){
+    var body = $('archiveList');
+    if(!fbDb){ body.innerHTML = '<div class="hint" style="text-align:left;">Firestore nicht verfügbar — Archiv kann nicht geladen werden.</div>'; return; }
+    body.innerHTML = '<div class="hint" style="text-align:left;">Lade gespeicherte Tests …</div>';
+    fbDb.collection('beeptests').orderBy('savedAt','desc').limit(100).get()
+      .then(function(qs){
+        archiveRecords = [];
+        qs.forEach(function(doc){
+          var d = doc.data();
+          if(d && d._verify) return; // Verify-Testdocs ignorieren
+          d._id = doc.id; archiveRecords.push(d);
+        });
+        renderArchive();
+      })
+      .catch(function(e){
+        body.innerHTML = '<div class="hint" style="text-align:left;">Fehler beim Laden: '+escHtml((e&&e.code)||String(e))+'</div>';
+      });
+  }
+  function renderArchive(){
+    var body = $('archiveList');
+    if(!archiveRecords.length){ body.innerHTML = '<div class="hint" style="text-align:left;">Noch keine gespeicherten Tests im Archiv.</div>'; return; }
+    body.innerHTML = '';
+    archiveRecords.forEach(function(rec, idx){
+      var aths = rec.athletes || [];
+      var done = aths.filter(function(a){ return a.finished; }).length;
+      var abr  = aths.filter(function(a){ return a.aborted; }).length;
+      var el = document.createElement('div');
+      el.className = 'arch-item';
+      el.innerHTML =
+        '<div class="arch-head">'+
+          '<span class="arch-team">'+escHtml(rec.team || '—')+'</span>'+
+          '<span class="arch-when">'+escHtml(rec.date||'')+(rec.time?' · '+escHtml(rec.time):'')+'</span>'+
+        '</div>'+
+        '<div class="arch-meta">'+aths.length+' Athleten · '+done+' abgeschlossen'+(abr?' · '+abr+' Abbruch':'')+'<br>'+
+          'Testleiter: '+escHtml(rec.lead||'—')+(rec.helpers?' · Gehilfen: '+escHtml(rec.helpers):'')+'</div>'+
+        '<div class="arch-actions">'+
+          '<button data-i="'+idx+'" data-k="pdf">📄 PDF</button>'+
+          '<button data-i="'+idx+'" data-k="csv">📊 CSV</button>'+
+        '</div>';
+      el.querySelectorAll('.arch-actions button').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var rec = archiveRecords[+btn.getAttribute('data-i')];
+          var d = recordData(rec);
+          if(btn.getAttribute('data-k')==='pdf') buildPDF(d); else buildCSV(d);
+        });
+      });
+      body.appendChild(el);
+    });
+  }
+
   // ---- Meta einlesen ----
   function meta(){
     var d = $('gDate').value;
@@ -616,15 +777,40 @@
     };
   }
 
-  function rows(){
+  function statusOf(a){ return a.aborted ? 'Abbruch' : (a.finished ? 'Abgeschlossen' : 'offen'); }
+
+  // Export-Daten aus aktuellem App-Zustand
+  function liveData(){
     var m = meta();
-    return athletes.map(function(a){
-      return {
-        name: a.name.trim() || '—',
-        team: (m.team || '—'),
-        value: fmt(a.value)
-      };
-    });
+    return {
+      team:m.team, date:m.date, time:m.time, temp:m.temp, notes:m.notes, lead:m.lead, helpers:m.helpers,
+      rows: athletes.map(function(a){
+        return {
+          name: a.name.trim() || '—',
+          team: (m.team || '—'),
+          value: fmt(a.value),
+          status: statusOf(a),
+          note: a.aborted ? (a.abortNote||'') : ''
+        };
+      })
+    };
+  }
+  // Export-Daten aus gespeichertem Firestore-/Log-Datensatz
+  function recordData(rec){
+    return {
+      team:rec.team||'', date:rec.date||'', time:rec.time||'', temp:rec.temp||'', notes:rec.notes||'',
+      lead:rec.lead||'', helpers:rec.helpers||'',
+      rows: (rec.athletes||[]).map(function(a){
+        var st = a.aborted ? 'Abbruch' : (a.finished ? 'Abgeschlossen' : 'offen');
+        return {
+          name: (a.name||'').trim() || '—',
+          team: (rec.team || '—'),
+          value: a.speed || fmt(a.value||0),
+          status: st,
+          note: a.aborted ? (a.abortNote||'') : ''
+        };
+      })
+    };
   }
 
   function validate(){
@@ -670,27 +856,26 @@
       message:'CSV-Datei jetzt erzeugen?',
       confirm:'CSV erstellen',
       confirm2:'Wirklich erstellen — nochmal tippen'
-    }).then(function(ok){ if(ok) buildCSV(); });
+    }).then(function(ok){ if(ok) buildCSV(liveData()); });
   }
-  function buildCSV(){
-    var m = meta();
+  function buildCSV(d){
     var sep = ';';
     var L = [];
     L.push('20m Shuttle Beep Run Test');
-    L.push('Mannschaft (global)'+sep+ csv(m.team));
-    L.push('Datum'+sep+ csv(m.date));
-    L.push('Uhrzeit'+sep+ csv(m.time));
-    L.push('Temperatur (°C)'+sep+ csv(m.temp));
-    L.push('Testleiter'+sep+ csv(m.lead));
-    L.push('Gehilfen'+sep+ csv(m.helpers));
-    L.push('Besondere Bedingungen'+sep+ csv(m.notes));
+    L.push('Mannschaft (global)'+sep+ csv(d.team));
+    L.push('Datum'+sep+ csv(d.date));
+    L.push('Uhrzeit'+sep+ csv(d.time));
+    L.push('Temperatur (°C)'+sep+ csv(d.temp));
+    L.push('Testleiter'+sep+ csv(d.lead));
+    L.push('Gehilfen'+sep+ csv(d.helpers));
+    L.push('Besondere Bedingungen'+sep+ csv(d.notes));
     L.push('');
-    L.push(['Name','Mannschaft','Geschwindigkeit (km/h)'].join(sep));
-    rows().forEach(function(r){
-      L.push([csv(r.name), csv(r.team), csv(r.value)].join(sep));
+    L.push(['Name','Mannschaft','Geschwindigkeit (km/h)','Status','Notiz (Abbruch)'].join(sep));
+    d.rows.forEach(function(r){
+      L.push([csv(r.name), csv(r.team), csv(r.value), csv(r.status), csv(r.note)].join(sep));
     });
     var content = '﻿' + L.join('\r\n'); // BOM für Umlaute in Excel
-    download(new Blob([content], {type:'text/csv;charset=utf-8;'}), filename('csv'));
+    download(new Blob([content], {type:'text/csv;charset=utf-8;'}), filename('csv', d));
   }
 
   function csv(v){
@@ -707,10 +892,9 @@
       message:'PDF-Datei jetzt erzeugen?',
       confirm:'PDF erstellen',
       confirm2:'Wirklich erstellen — nochmal tippen'
-    }).then(function(ok){ if(ok) buildPDF(); });
+    }).then(function(ok){ if(ok) buildPDF(liveData()); });
   }
-  function buildPDF(){
-    var m = meta();
+  function buildPDF(m){
     var jsPDF = window.jspdf.jsPDF;
     var doc = new jsPDF({unit:'mm', format:'a4'});
     var pw = doc.internal.pageSize.getWidth();
@@ -760,13 +944,16 @@
     // Tabelle
     doc.autoTable({
       startY: y,
-      head: [['#','Name','Mannschaft','Geschwindigkeit (km/h)']],
-      body: rows().map(function(r,i){ return [String(i+1), r.name, r.team, r.value]; }),
+      head: [['#','Name','km/h','Status / Notiz']],
+      body: m.rows.map(function(r,i){
+        var st = r.status === 'Abbruch' ? ('Abbruch' + (r.note ? ' — '+r.note : '')) : r.status;
+        return [String(i+1), r.name, r.value, st];
+      }),
       theme:'grid',
       styles:{ font:'helvetica', fontSize:10, textColor:[0,0,0], lineColor:[0,0,0], lineWidth:0.2, cellPadding:2.5 },
       headStyles:{ fillColor:[0,0,0], textColor:[255,255,255], fontStyle:'bold' },
       alternateRowStyles:{ fillColor:[245,245,245] },
-      columnStyles:{ 0:{cellWidth:12, halign:'center'}, 3:{halign:'center', fontStyle:'bold'} },
+      columnStyles:{ 0:{cellWidth:10, halign:'center'}, 2:{cellWidth:20, halign:'center', fontStyle:'bold'}, 3:{cellWidth:58} },
       margin:{left:ML, right:ML}
     });
 
@@ -775,17 +962,17 @@
     doc.setFontSize(8); doc.setTextColor(120);
     doc.text('Bear Performance — erstellt am '+ nowStamp(), pw/2, fy, {align:'center'});
 
-    doc.save(filename('pdf'));
+    doc.save(filename('pdf', m));
   }
 
   // ---- Helpers ----
-  function filename(ext){
-    var m = meta();
+  function filename(ext, d){
+    d = d || meta();
     var clean = function(s){ return (s||'').replace(/[^\wÄÖÜäöüß.\-]+/g,'_').replace(/^_+|_+$/g,''); };
-    var t = clean(m.team) || 'Mannschaft';
-    var d = (m.date || 'Datum').replace(/\./g,'-');   // 27.06.2026 -> 27-06-2026
-    var u = (m.time || '').replace(/:/g,'-') || 'Uhrzeit'; // 09:05 -> 09-05
-    return 'beeptest-'+t+'-'+d+'-'+u+'.'+ext;
+    var t = clean(d.team) || 'Mannschaft';
+    var dt = (d.date || 'Datum').replace(/\./g,'-');   // 27.06.2026 -> 27-06-2026
+    var u = (d.time || '').replace(/:/g,'-') || 'Uhrzeit'; // 09:05 -> 09-05
+    return 'beeptest-'+t+'-'+dt+'-'+u+'.'+ext;
   }
   function nowStamp(){
     var n = new Date();
@@ -855,9 +1042,20 @@
   $('saveCancel').addEventListener('click', closeSaveModal);
   $('saveModal').addEventListener('click', function(e){ if(e.target === this) closeSaveModal(); });
 
+  // Abbruch-Modal
+  $('abortOk').addEventListener('click', doAbort);
+  $('abortCancel').addEventListener('click', closeAbortModal);
+  $('abortModal').addEventListener('click', function(e){ if(e.target === this) closeAbortModal(); });
+
+  // Archiv-Modal
+  $('archBtn').addEventListener('click', openArchive);
+  $('archiveClose').addEventListener('click', closeArchive);
+  $('archiveReload').addEventListener('click', loadArchive);
+  $('archiveModal').addEventListener('click', function(e){ if(e.target === this) closeArchive(); });
+
   initDateTime();
   updateCondSummary(); // zeigt das vorbefüllte Datum/Uhrzeit im eingeklappten Zustand
-  for(var k=0; k<5; k++){ athletes.push({ id: ++seq, name:'', team:'', value:START, finished:false }); }
+  for(var k=0; k<5; k++){ athletes.push({ id: ++seq, name:'', team:'', value:START, finished:false, aborted:false, abortNote:'' }); }
   render(); // mit 5 Athleten starten (erweiterbar bis 7+)
 })();
 </script>
