@@ -230,7 +230,7 @@
 <body>
 
 <header>
-  <div class="title">HIT-Intervall-Timer <span class="ver">v1.1</span></div>
+  <div class="title">HIT-Intervall-Timer <span class="ver">v1.2</span></div>
   <div class="subtitle">BEAR PERFORMANCE</div>
 </header>
 
@@ -270,7 +270,7 @@
         </div>
       </div>
       <div class="set-field">
-        <label for="inTurns">Wendungen pro Belastung</label>
+        <label for="inTurns">Wenden</label>
         <div class="stepper">
           <button type="button" data-target="inTurns" data-step="-1">−</button>
           <input type="number" id="inTurns" inputmode="numeric" value="1" min="0" max="20">
@@ -303,8 +303,8 @@
       </div>
     </div>
     <div class="hint">
-      <b>Töne:</b> Hoher Ton = Start / Wendung, tiefer Doppelton = Pause beginnt.
-      Vor jeder Belastung zählt ein Countdown mit 3 kurzen Tönen im Sekundentakt herunter.<br>
+      <b>Töne:</b> Hoher Ton = Start / Wende, tiefer Doppelton = Pause beginnt.
+      Die letzten 3 Sekunden jeder Pause zählen mit 3 kurzen Tönen im Sekundentakt herunter.<br>
       Beispiel 30&nbsp;s / 2 Wendungen: Startsignal, Wendesignal nach 10&nbsp;s und 20&nbsp;s, Endsignal nach 30&nbsp;s.<br>
       Bei mehreren Sets läuft nach dem letzten Intervall eines Sets die Satzpause statt der normalen Pause.
     </div>
@@ -484,12 +484,15 @@ function buildSchedule(workSec, restSec, turns, roundsPerSet, sets, setRestSec){
 
   for (var s = 1; s <= sets; s++){
     for (var r = 1; r <= roundsPerSet; r++){
-      // Countdown vor der Belastung: 3 kurze Töne im Sekundentakt
-      phases.push({ start:t, end:t + COUNTDOWN, type:"ready", round:r, set:s });
-      for (var c = 0; c < COUNTDOWN; c++){
-        events.push({ t: t + c, fn: toneCountdown, fired:false });
+      // Eigene Countdown-Phase nur vor der allerersten Belastung —
+      // danach laufen die 3 Töne in den letzten Sekunden der Pause
+      if (s === 1 && r === 1){
+        phases.push({ start:t, end:t + COUNTDOWN, type:"ready", round:r, set:s });
+        for (var c = 0; c < COUNTDOWN; c++){
+          events.push({ t: t + c, fn: toneCountdown, fired:false });
+        }
+        t += COUNTDOWN;
       }
-      t += COUNTDOWN;
 
       // Belastung
       phases.push({ start:t, end:t + workSec, type:"work", round:r, set:s });
@@ -500,14 +503,21 @@ function buildSchedule(workSec, restSec, turns, roundsPerSet, sets, setRestSec){
       t += workSec;
 
       // Ende der Belastung: Pause, Satzpause oder Finish
+      // Countdown-Töne in den letzten 3 s der (Satz-)Pause
       var lastInSet = (r === roundsPerSet);
       var lastSet = (s === sets);
       if (!lastInSet){
         events.push({ t: t, fn: tonePause, fired:false });
+        for (var c2 = COUNTDOWN; c2 >= 1; c2--){
+          events.push({ t: t + restSec - c2, fn: toneCountdown, fired:false });
+        }
         phases.push({ start:t, end:t + restSec, type:"rest", round:r, set:s });
         t += restSec;
       } else if (!lastSet){
         events.push({ t: t, fn: tonePause, fired:false });
+        for (var c3 = COUNTDOWN; c3 >= 1; c3--){
+          events.push({ t: t + setRestSec - c3, fn: toneCountdown, fired:false });
+        }
         phases.push({ start:t, end:t + setRestSec, type:"setrest", round:r, set:s });
         t += setRestSec;
       } else {
@@ -586,7 +596,7 @@ function tick(){
     phaseLabel.textContent = "Belastung";
     bigTime.textContent = fmtTime(remaining);
     subInfo.textContent = "Intervall " + p.round + " / " + timer.totalRounds + setSuffix
-      + (timer.turns > 0 ? " · " + timer.turns + " Wendung" + (timer.turns > 1 ? "en" : "") : "");
+      + (timer.turns > 0 ? " · " + timer.turns + " Wende" + (timer.turns > 1 ? "n" : "") : "");
     renderTurnDots(el - p.start);
   } else if (p.type === "rest"){
     phaseLabel.textContent = "Pause";
