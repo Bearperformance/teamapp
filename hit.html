@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>HIT-Intervall-Timer — Bear Performance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black:#000;
+    --white:#fff;
+    --grey:#f2f2f2;
+    --line:#e0e0e0;
+    --muted:#777;
+    --work:#c62828;
+    --rest:#1565c0;
+    --ready:#2e7d32;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Montserrat',-apple-system,BlinkMacSystemFont,sans-serif;
+    background:var(--white);
+    color:var(--black);
+    font-size:16px;
+    -webkit-text-size-adjust:100%;
+    padding-bottom:60px;
+  }
+  header{
+    background:var(--black);
+    color:var(--white);
+    padding:12px 16px 14px;
+    text-align:center;
+  }
+  header .title{
+    font-weight:800;
+    font-size:18px;
+    line-height:1.2;
+    letter-spacing:.5px;
+    text-transform:uppercase;
+  }
+  header .subtitle{
+    font-weight:500;
+    font-size:12px;
+    color:#bbb;
+    margin-top:4px;
+    letter-spacing:1px;
+  }
+  header .ver{
+    font-weight:700;
+    background:rgba(255,255,255,.16);
+    border-radius:6px;
+    padding:1px 6px;
+    margin-left:6px;
+    letter-spacing:.5px;
+  }
+  .wrap{max-width:680px;margin:0 auto;padding:16px;}
+  .card{
+    background:var(--white);
+    border:2px solid var(--black);
+    border-radius:14px;
+    padding:14px;
+    margin-bottom:16px;
+  }
+  .card h2{
+    margin:0 0 10px;
+    font-size:14px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:1px;
+  }
+  /* ---- Settings ---- */
+  .settings-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+  .set-field label{
+    display:block;
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    color:var(--muted);
+    margin-bottom:4px;
+  }
+  .stepper{
+    display:flex;
+    align-items:stretch;
+    border:2px solid var(--black);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  .stepper button{
+    flex:0 0 44px;
+    border:none;
+    background:var(--black);
+    color:var(--white);
+    font-size:22px;
+    font-weight:700;
+    font-family:inherit;
+    cursor:pointer;
+    padding:0;
+  }
+  .stepper button:active{opacity:.7;}
+  .stepper input{
+    flex:1;
+    min-width:0;
+    border:none;
+    text-align:center;
+    font-family:inherit;
+    font-size:20px;
+    font-weight:800;
+    padding:10px 2px;
+    outline:none;
+    -moz-appearance:textfield;
+  }
+  .stepper input::-webkit-inner-spin-button,
+  .stepper input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+  .hint{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:10px;
+    line-height:1.45;
+  }
+  /* ---- Timer display ---- */
+  .timerbox{
+    text-align:center;
+    border-radius:14px;
+    border:2px solid var(--black);
+    padding:18px 14px 20px;
+    margin-bottom:16px;
+    transition:background .25s,color .25s;
+  }
+  .timerbox.idle{background:var(--white);color:var(--black);}
+  .timerbox.ready{background:var(--ready);color:var(--white);border-color:var(--ready);}
+  .timerbox.work{background:var(--work);color:var(--white);border-color:var(--work);}
+  .timerbox.rest{background:var(--rest);color:var(--white);border-color:var(--rest);}
+  .timerbox.done{background:var(--black);color:var(--white);}
+  .phase-label{
+    font-size:16px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:2px;
+  }
+  .big-time{
+    font-size:84px;
+    font-weight:800;
+    line-height:1.05;
+    font-variant-numeric:tabular-nums;
+    margin:4px 0 2px;
+  }
+  .sub-info{
+    font-size:14px;
+    font-weight:600;
+    letter-spacing:.5px;
+    min-height:20px;
+    opacity:.9;
+  }
+  .turn-dots{
+    display:flex;
+    justify-content:center;
+    gap:8px;
+    margin-top:10px;
+    min-height:14px;
+  }
+  .turn-dots span{
+    width:12px;height:12px;
+    border-radius:50%;
+    border:2px solid currentColor;
+    display:inline-block;
+  }
+  .turn-dots span.hit{background:currentColor;}
+  /* ---- Buttons ---- */
+  .btnrow{display:flex;gap:10px;margin-bottom:16px;}
+  .btnrow button{
+    flex:1;
+    border:2px solid var(--black);
+    border-radius:12px;
+    padding:16px 8px;
+    font-family:inherit;
+    font-size:16px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    cursor:pointer;
+    background:var(--black);
+    color:var(--white);
+  }
+  .btnrow button.secondary{background:var(--white);color:var(--black);}
+  .btnrow button:active{opacity:.7;}
+  .btnrow button:disabled{opacity:.35;pointer-events:none;}
+  /* ---- Tabelle ---- */
+  .tablewrap{overflow-x:auto;}
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+    font-variant-numeric:tabular-nums;
+  }
+  th,td{
+    border:1px solid var(--line);
+    padding:7px 6px;
+    text-align:center;
+    white-space:nowrap;
+  }
+  th{
+    background:var(--black);
+    color:var(--white);
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.3px;
+  }
+  tbody tr:nth-child(even){background:var(--grey);}
+  tbody tr.marked{background:#fff3cd;}
+  tbody tr.selected{background:var(--black);color:var(--white);font-weight:700;}
+  td.grafik{font-weight:800;}
+  .table-hint{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:8px;
+    line-height:1.45;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title">HIT-Intervall-Timer <span class="ver">v1.0</span></div>
+  <div class="subtitle">BEAR PERFORMANCE</div>
+</header>
+
+<div class="wrap">
+
+  <!-- Timer-Anzeige -->
+  <div class="timerbox idle" id="timerBox">
+    <div class="phase-label" id="phaseLabel">Bereit</div>
+    <div class="big-time" id="bigTime">–</div>
+    <div class="sub-info" id="subInfo">Einstellungen wählen und Start drücken</div>
+    <div class="turn-dots" id="turnDots"></div>
+  </div>
+
+  <div class="btnrow">
+    <button id="startBtn">▶ Start</button>
+    <button id="stopBtn" class="secondary" disabled>■ Stopp</button>
+  </div>
+
+  <!-- Einstellungen -->
+  <div class="card">
+    <h2>Einstellungen</h2>
+    <div class="settings-grid">
+      <div class="set-field">
+        <label for="inWork">Belastung (Sek.)</label>
+        <div class="stepper">
+          <button type="button" data-target="inWork" data-step="-5">−</button>
+          <input type="number" id="inWork" inputmode="numeric" value="30" min="5" max="600">
+          <button type="button" data-target="inWork" data-step="5">+</button>
+        </div>
+      </div>
+      <div class="set-field">
+        <label for="inRest">Pause (Sek.)</label>
+        <div class="stepper">
+          <button type="button" data-target="inRest" data-step="-5">−</button>
+          <input type="number" id="inRest" inputmode="numeric" value="15" min="5" max="600">
+          <button type="button" data-target="inRest" data-step="5">+</button>
+        </div>
+      </div>
+      <div class="set-field">
+        <label for="inTurns">Wendungen pro Belastung</label>
+        <div class="stepper">
+          <button type="button" data-target="inTurns" data-step="-1">−</button>
+          <input type="number" id="inTurns" inputmode="numeric" value="1" min="0" max="20">
+          <button type="button" data-target="inTurns" data-step="1">+</button>
+        </div>
+      </div>
+      <div class="set-field">
+        <label for="inRounds">Intervalle (Anzahl)</label>
+        <div class="stepper">
+          <button type="button" data-target="inRounds" data-step="-1">−</button>
+          <input type="number" id="inRounds" inputmode="numeric" value="8" min="1" max="99">
+          <button type="button" data-target="inRounds" data-step="1">+</button>
+        </div>
+      </div>
+    </div>
+    <div class="hint">
+      <b>Töne:</b> Hoher Ton = Start / Wendung, tiefer Doppelton = Pause beginnt.
+      Vor jeder Belastung zählt ein Countdown mit 3 kurzen Tönen im Sekundentakt herunter.<br>
+      Beispiel 30&nbsp;s / 2 Wendungen: Startsignal, Wendesignal nach 10&nbsp;s und 20&nbsp;s, Endsignal nach 30&nbsp;s.
+    </div>
+  </div>
+
+  <!-- MAS-Tabelle -->
+  <div class="card">
+    <h2>Markierungen nach Geschwindigkeit (MAS)</h2>
+    <div class="tablewrap">
+      <table id="masTable">
+        <thead>
+          <tr>
+            <th>Grafik</th>
+            <th>MAS km/h</th>
+            <th>m/s + %</th>
+            <th>m total (inkl %)</th>
+            <th>Teilstrecke (inkl %)</th>
+            <th>Markierung Ende</th>
+          </tr>
+        </thead>
+        <tbody id="masBody"></tbody>
+      </table>
+    </div>
+    <div class="table-hint">
+      Zeile antippen zum Hervorheben. Gelb markiert = Grafik-Markierungen 1 (14&nbsp;km/h) und 2 (15&nbsp;km/h).
+    </div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================
+   MAS-Tabelle
+   ========================================================= */
+var MAS_ROWS = [
+  { g:"",  kmh:"12",   ms:"3,33", total:"90,0",  teil:"30,0", mark:"-10" },
+  { g:"",  kmh:"13",   ms:"3,61", total:"97,5",  teil:"32,5", mark:"-8"  },
+  { g:"1", kmh:"14",   ms:"3,89", total:"105,0", teil:"35,0", mark:"-5"  },
+  { g:"2", kmh:"15",   ms:"4,17", total:"112,5", teil:"37,5", mark:"-3"  },
+  { g:"",  kmh:"16",   ms:"4,44", total:"120,0", teil:"40,0", mark:"0"   },
+  { g:"",  kmh:"17",   ms:"4,72", total:"127,5", teil:"42,5", mark:"2"   },
+  { g:"",  kmh:"18",   ms:"5,00", total:"135,0", teil:"45,0", mark:"5"   },
+  { g:"",  kmh:"19",   ms:"5,28", total:"142,5", teil:"47,5", mark:"7"   },
+  { g:"",  kmh:"19,5", ms:"5,42", total:"146,3", teil:"48,8", mark:"8"   },
+  { g:"",  kmh:"20",   ms:"5,56", total:"150,0", teil:"50,0", mark:"10"  }
+];
+
+function renderMasTable(){
+  var body = document.getElementById("masBody");
+  var html = "";
+  for (var i=0; i<MAS_ROWS.length; i++){
+    var r = MAS_ROWS[i];
+    html += '<tr class="' + (r.g ? 'marked' : '') + '" data-i="' + i + '">'
+         +  '<td class="grafik">' + r.g + '</td>'
+         +  '<td>' + r.kmh + '</td>'
+         +  '<td>' + r.ms + '</td>'
+         +  '<td>' + r.total + '</td>'
+         +  '<td>' + r.teil + '</td>'
+         +  '<td>' + r.mark + '</td>'
+         +  '</tr>';
+  }
+  body.innerHTML = html;
+  body.addEventListener("click", function(ev){
+    var tr = ev.target.closest("tr");
+    if (!tr) return;
+    var wasSelected = tr.classList.contains("selected");
+    var rows = body.querySelectorAll("tr");
+    for (var j=0; j<rows.length; j++) rows[j].classList.remove("selected");
+    if (!wasSelected) tr.classList.add("selected");
+  });
+}
+renderMasTable();
+
+/* =========================================================
+   Audio (Web Audio API — iOS: wird durch Start-Tap entsperrt)
+   ========================================================= */
+var audioCtx = null;
+
+function ensureAudio(){
+  if (!audioCtx){
+    var AC = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AC();
+  }
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  // iOS-Unlock: stummer Buffer abspielen
+  try {
+    var buf = audioCtx.createBuffer(1, 1, 22050);
+    var src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(audioCtx.destination);
+    src.start(0);
+  } catch(e){}
+}
+
+function playTone(freq, durMs, vol){
+  if (!audioCtx) return;
+  try {
+    var osc = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    osc.type = "square";
+    osc.frequency.value = freq;
+    var t0 = audioCtx.currentTime;
+    var dur = durMs / 1000;
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(vol || 0.5, t0 + 0.01);
+    gain.gain.setValueAtTime(vol || 0.5, t0 + dur - 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+  } catch(e){}
+}
+
+/* Signal-Typen */
+function toneCountdown(){ playTone(660, 150, 0.5); }             // 3x im Sekundentakt
+function toneWorkStart(){ playTone(880, 600, 0.6); }             // Start der Belastung
+function toneTurn(){      playTone(880, 300, 0.6); }             // Wendesignal
+function tonePause(){                                            // Ende Belastung / Pause: tiefer Doppelton
+  playTone(330, 250, 0.6);
+  setTimeout(function(){ playTone(330, 250, 0.6); }, 320);
+}
+function toneFinish(){                                           // Workout fertig
+  playTone(880, 200, 0.6);
+  setTimeout(function(){ playTone(1100, 200, 0.6); }, 250);
+  setTimeout(function(){ playTone(1320, 500, 0.6); }, 500);
+}
+
+/* =========================================================
+   Timer-Engine
+   Ablauf: [Countdown 3s] → Belastung → Pause (letzte 3s Countdown) → …
+   Wendungen: bei N Wendungen wird die Belastung in N+1 Teilstücke
+   geteilt → Signal an jeder Teilstückgrenze.
+   ========================================================= */
+var timer = {
+  running:false,
+  startMs:0,        // Date.now() beim Start
+  events:[],        // [{t:Sekunden, fn:Function, fired:false}]
+  phases:[],        // [{start,end,type:'ready'|'work'|'rest'|'done', round}]
+  totalRounds:0,
+  turns:0,
+  workSec:0,
+  intervalId:null
+};
+
+var wakeLock = null;
+function requestWakeLock(){
+  if ("wakeLock" in navigator){
+    navigator.wakeLock.request("screen").then(function(wl){
+      wakeLock = wl;
+    }).catch(function(){});
+  }
+}
+function releaseWakeLock(){
+  if (wakeLock){ try{ wakeLock.release(); }catch(e){} wakeLock = null; }
+}
+document.addEventListener("visibilitychange", function(){
+  if (document.visibilityState === "visible" && timer.running) requestWakeLock();
+});
+
+function clampInt(id, lo, hi, fallback){
+  var v = parseInt(document.getElementById(id).value, 10);
+  if (isNaN(v)) v = fallback;
+  v = Math.max(lo, Math.min(hi, v));
+  document.getElementById(id).value = v;
+  return v;
+}
+
+function buildSchedule(workSec, restSec, turns, rounds){
+  var events = [];
+  var phases = [];
+  var COUNTDOWN = 3;
+  var t = 0;
+  var seg = workSec / (turns + 1);
+
+  for (var r = 1; r <= rounds; r++){
+    // Countdown vor der Belastung: 3 kurze Töne im Sekundentakt
+    phases.push({ start:t, end:t + COUNTDOWN, type:"ready", round:r });
+    for (var c = 0; c < COUNTDOWN; c++){
+      events.push({ t: t + c, fn: toneCountdown, fired:false });
+    }
+    t += COUNTDOWN;
+
+    // Belastung
+    phases.push({ start:t, end:t + workSec, type:"work", round:r });
+    events.push({ t: t, fn: toneWorkStart, fired:false });
+    for (var w = 1; w <= turns; w++){
+      events.push({ t: t + seg * w, fn: toneTurn, fired:false, turnIndex:w, round:r });
+    }
+    t += workSec;
+
+    // Ende der Belastung
+    if (r < rounds){
+      events.push({ t: t, fn: tonePause, fired:false });
+      phases.push({ start:t, end:t + restSec, type:"rest", round:r });
+      t += restSec;
+    } else {
+      events.push({ t: t, fn: toneFinish, fired:false });
+      phases.push({ start:t, end:t + 0.5, type:"done", round:r });
+    }
+  }
+  return { events:events, phases:phases, total:t };
+}
+
+function currentPhase(el){
+  for (var i=0; i<timer.phases.length; i++){
+    var p = timer.phases[i];
+    if (el >= p.start && el < p.end) return p;
+  }
+  return timer.phases[timer.phases.length - 1];
+}
+
+function fmtTime(sec){
+  if (sec < 0) sec = 0;
+  var s = Math.ceil(sec);
+  if (s >= 60){
+    var m = Math.floor(s / 60);
+    var rest = s % 60;
+    return m + ":" + (rest < 10 ? "0" : "") + rest;
+  }
+  return String(s);
+}
+
+function renderTurnDots(elapsedInWork){
+  var dots = document.getElementById("turnDots");
+  if (timer.turns < 1){ dots.innerHTML = ""; return; }
+  var seg = timer.workSec / (timer.turns + 1);
+  var html = "";
+  for (var i = 1; i <= timer.turns; i++){
+    html += '<span class="' + (elapsedInWork >= seg * i ? 'hit' : '') + '"></span>';
+  }
+  dots.innerHTML = html;
+}
+
+function tick(){
+  var el = (Date.now() - timer.startMs) / 1000;
+
+  // Fällige Events feuern
+  for (var i=0; i<timer.events.length; i++){
+    var ev = timer.events[i];
+    if (!ev.fired && el >= ev.t){
+      ev.fired = true;
+      ev.fn();
+    }
+  }
+
+  var p = currentPhase(el);
+  var box = document.getElementById("timerBox");
+  var phaseLabel = document.getElementById("phaseLabel");
+  var bigTime = document.getElementById("bigTime");
+  var subInfo = document.getElementById("subInfo");
+
+  if (p.type === "done" || el >= timer.total){
+    stopTimer(true);
+    return;
+  }
+
+  var remaining = p.end - el;
+  box.className = "timerbox " + (p.type === "ready" ? "ready" : p.type);
+
+  if (p.type === "ready"){
+    phaseLabel.textContent = "Bereit machen";
+    bigTime.textContent = fmtTime(remaining);
+    subInfo.textContent = "Intervall " + p.round + " / " + timer.totalRounds;
+    renderTurnDots(0);
+  } else if (p.type === "work"){
+    phaseLabel.textContent = "Belastung";
+    bigTime.textContent = fmtTime(remaining);
+    subInfo.textContent = "Intervall " + p.round + " / " + timer.totalRounds
+      + (timer.turns > 0 ? " · " + timer.turns + " Wendung" + (timer.turns > 1 ? "en" : "") : "");
+    renderTurnDots(el - p.start);
+  } else if (p.type === "rest"){
+    phaseLabel.textContent = "Pause";
+    bigTime.textContent = fmtTime(remaining);
+    subInfo.textContent = "Nächstes Intervall: " + (p.round + 1) + " / " + timer.totalRounds;
+    renderTurnDots(0);
+  }
+}
+
+function startTimer(){
+  var workSec = clampInt("inWork", 5, 600, 30);
+  var restSec = clampInt("inRest", 5, 600, 15);
+  var turns   = clampInt("inTurns", 0, 20, 1);
+  var rounds  = clampInt("inRounds", 1, 99, 8);
+
+  ensureAudio();
+  requestWakeLock();
+
+  var sched = buildSchedule(workSec, restSec, turns, rounds);
+  timer.events = sched.events;
+  timer.phases = sched.phases;
+  timer.total = sched.total;
+  timer.totalRounds = rounds;
+  timer.turns = turns;
+  timer.workSec = workSec;
+  timer.startMs = Date.now();
+  timer.running = true;
+
+  document.getElementById("startBtn").disabled = true;
+  document.getElementById("stopBtn").disabled = false;
+  setInputsDisabled(true);
+
+  timer.intervalId = setInterval(tick, 50);
+  tick();
+}
+
+function stopTimer(finished){
+  if (timer.intervalId){ clearInterval(timer.intervalId); timer.intervalId = null; }
+  timer.running = false;
+  releaseWakeLock();
+
+  document.getElementById("startBtn").disabled = false;
+  document.getElementById("stopBtn").disabled = true;
+  setInputsDisabled(false);
+
+  var box = document.getElementById("timerBox");
+  var phaseLabel = document.getElementById("phaseLabel");
+  var bigTime = document.getElementById("bigTime");
+  var subInfo = document.getElementById("subInfo");
+  document.getElementById("turnDots").innerHTML = "";
+
+  if (finished){
+    box.className = "timerbox done";
+    phaseLabel.textContent = "Fertig";
+    bigTime.textContent = "✔";
+    subInfo.textContent = timer.totalRounds + " Intervalle abgeschlossen";
+  } else {
+    box.className = "timerbox idle";
+    phaseLabel.textContent = "Gestoppt";
+    bigTime.textContent = "–";
+    subInfo.textContent = "Einstellungen wählen und Start drücken";
+  }
+}
+
+function setInputsDisabled(dis){
+  var ids = ["inWork","inRest","inTurns","inRounds"];
+  for (var i=0; i<ids.length; i++) document.getElementById(ids[i]).disabled = dis;
+  var btns = document.querySelectorAll(".stepper button");
+  for (var j=0; j<btns.length; j++) btns[j].disabled = dis;
+}
+
+/* Stepper-Buttons */
+document.addEventListener("click", function(ev){
+  var btn = ev.target.closest(".stepper button");
+  if (!btn || btn.disabled) return;
+  var input = document.getElementById(btn.getAttribute("data-target"));
+  var step = parseInt(btn.getAttribute("data-step"), 10);
+  var v = parseInt(input.value, 10);
+  if (isNaN(v)) v = 0;
+  v += step;
+  var lo = parseInt(input.min, 10);
+  var hi = parseInt(input.max, 10);
+  input.value = Math.max(lo, Math.min(hi, v));
+});
+
+document.getElementById("startBtn").addEventListener("click", startTimer);
+document.getElementById("stopBtn").addEventListener("click", function(){ stopTimer(false); });
+</script>
+</body>
+</html>
