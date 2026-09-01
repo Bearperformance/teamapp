@@ -230,7 +230,7 @@
 <body>
 
 <header>
-  <div class="title">HIT-Intervall-Timer <span class="ver">v1.0</span></div>
+  <div class="title">HIT-Intervall-Timer <span class="ver">v1.1</span></div>
   <div class="subtitle">BEAR PERFORMANCE</div>
 </header>
 
@@ -278,18 +278,35 @@
         </div>
       </div>
       <div class="set-field">
-        <label for="inRounds">Intervalle (Anzahl)</label>
+        <label for="inRounds">Intervalle pro Set</label>
         <div class="stepper">
           <button type="button" data-target="inRounds" data-step="-1">−</button>
           <input type="number" id="inRounds" inputmode="numeric" value="8" min="1" max="99">
           <button type="button" data-target="inRounds" data-step="1">+</button>
         </div>
       </div>
+      <div class="set-field">
+        <label for="inSets">Sets (Anzahl)</label>
+        <div class="stepper">
+          <button type="button" data-target="inSets" data-step="-1">−</button>
+          <input type="number" id="inSets" inputmode="numeric" value="1" min="1" max="20">
+          <button type="button" data-target="inSets" data-step="1">+</button>
+        </div>
+      </div>
+      <div class="set-field">
+        <label for="inSetRest">Satzpause (Sek.)</label>
+        <div class="stepper">
+          <button type="button" data-target="inSetRest" data-step="-15">−</button>
+          <input type="number" id="inSetRest" inputmode="numeric" value="120" min="10" max="900">
+          <button type="button" data-target="inSetRest" data-step="15">+</button>
+        </div>
+      </div>
     </div>
     <div class="hint">
       <b>Töne:</b> Hoher Ton = Start / Wendung, tiefer Doppelton = Pause beginnt.
       Vor jeder Belastung zählt ein Countdown mit 3 kurzen Tönen im Sekundentakt herunter.<br>
-      Beispiel 30&nbsp;s / 2 Wendungen: Startsignal, Wendesignal nach 10&nbsp;s und 20&nbsp;s, Endsignal nach 30&nbsp;s.
+      Beispiel 30&nbsp;s / 2 Wendungen: Startsignal, Wendesignal nach 10&nbsp;s und 20&nbsp;s, Endsignal nach 30&nbsp;s.<br>
+      Bei mehreren Sets läuft nach dem letzten Intervall eines Sets die Satzpause statt der normalen Pause.
     </div>
   </div>
 
@@ -458,37 +475,45 @@ function clampInt(id, lo, hi, fallback){
   return v;
 }
 
-function buildSchedule(workSec, restSec, turns, rounds){
+function buildSchedule(workSec, restSec, turns, roundsPerSet, sets, setRestSec){
   var events = [];
   var phases = [];
   var COUNTDOWN = 3;
   var t = 0;
   var seg = workSec / (turns + 1);
 
-  for (var r = 1; r <= rounds; r++){
-    // Countdown vor der Belastung: 3 kurze Töne im Sekundentakt
-    phases.push({ start:t, end:t + COUNTDOWN, type:"ready", round:r });
-    for (var c = 0; c < COUNTDOWN; c++){
-      events.push({ t: t + c, fn: toneCountdown, fired:false });
-    }
-    t += COUNTDOWN;
+  for (var s = 1; s <= sets; s++){
+    for (var r = 1; r <= roundsPerSet; r++){
+      // Countdown vor der Belastung: 3 kurze Töne im Sekundentakt
+      phases.push({ start:t, end:t + COUNTDOWN, type:"ready", round:r, set:s });
+      for (var c = 0; c < COUNTDOWN; c++){
+        events.push({ t: t + c, fn: toneCountdown, fired:false });
+      }
+      t += COUNTDOWN;
 
-    // Belastung
-    phases.push({ start:t, end:t + workSec, type:"work", round:r });
-    events.push({ t: t, fn: toneWorkStart, fired:false });
-    for (var w = 1; w <= turns; w++){
-      events.push({ t: t + seg * w, fn: toneTurn, fired:false, turnIndex:w, round:r });
-    }
-    t += workSec;
+      // Belastung
+      phases.push({ start:t, end:t + workSec, type:"work", round:r, set:s });
+      events.push({ t: t, fn: toneWorkStart, fired:false });
+      for (var w = 1; w <= turns; w++){
+        events.push({ t: t + seg * w, fn: toneTurn, fired:false, turnIndex:w, round:r });
+      }
+      t += workSec;
 
-    // Ende der Belastung
-    if (r < rounds){
-      events.push({ t: t, fn: tonePause, fired:false });
-      phases.push({ start:t, end:t + restSec, type:"rest", round:r });
-      t += restSec;
-    } else {
-      events.push({ t: t, fn: toneFinish, fired:false });
-      phases.push({ start:t, end:t + 0.5, type:"done", round:r });
+      // Ende der Belastung: Pause, Satzpause oder Finish
+      var lastInSet = (r === roundsPerSet);
+      var lastSet = (s === sets);
+      if (!lastInSet){
+        events.push({ t: t, fn: tonePause, fired:false });
+        phases.push({ start:t, end:t + restSec, type:"rest", round:r, set:s });
+        t += restSec;
+      } else if (!lastSet){
+        events.push({ t: t, fn: tonePause, fired:false });
+        phases.push({ start:t, end:t + setRestSec, type:"setrest", round:r, set:s });
+        t += setRestSec;
+      } else {
+        events.push({ t: t, fn: toneFinish, fired:false });
+        phases.push({ start:t, end:t + 0.5, type:"done", round:r, set:s });
+      }
     }
   }
   return { events:events, phases:phases, total:t };
@@ -548,23 +573,30 @@ function tick(){
   }
 
   var remaining = p.end - el;
-  box.className = "timerbox " + (p.type === "ready" ? "ready" : p.type);
+  box.className = "timerbox " + (p.type === "setrest" ? "rest" : p.type);
+
+  var setSuffix = timer.totalSets > 1 ? " · Set " + p.set + " / " + timer.totalSets : "";
 
   if (p.type === "ready"){
     phaseLabel.textContent = "Bereit machen";
     bigTime.textContent = fmtTime(remaining);
-    subInfo.textContent = "Intervall " + p.round + " / " + timer.totalRounds;
+    subInfo.textContent = "Intervall " + p.round + " / " + timer.totalRounds + setSuffix;
     renderTurnDots(0);
   } else if (p.type === "work"){
     phaseLabel.textContent = "Belastung";
     bigTime.textContent = fmtTime(remaining);
-    subInfo.textContent = "Intervall " + p.round + " / " + timer.totalRounds
+    subInfo.textContent = "Intervall " + p.round + " / " + timer.totalRounds + setSuffix
       + (timer.turns > 0 ? " · " + timer.turns + " Wendung" + (timer.turns > 1 ? "en" : "") : "");
     renderTurnDots(el - p.start);
   } else if (p.type === "rest"){
     phaseLabel.textContent = "Pause";
     bigTime.textContent = fmtTime(remaining);
-    subInfo.textContent = "Nächstes Intervall: " + (p.round + 1) + " / " + timer.totalRounds;
+    subInfo.textContent = "Nächstes Intervall: " + (p.round + 1) + " / " + timer.totalRounds + setSuffix;
+    renderTurnDots(0);
+  } else if (p.type === "setrest"){
+    phaseLabel.textContent = "Satzpause";
+    bigTime.textContent = fmtTime(remaining);
+    subInfo.textContent = "Nächstes Set: " + (p.set + 1) + " / " + timer.totalSets;
     renderTurnDots(0);
   }
 }
@@ -574,15 +606,18 @@ function startTimer(){
   var restSec = clampInt("inRest", 5, 600, 15);
   var turns   = clampInt("inTurns", 0, 20, 1);
   var rounds  = clampInt("inRounds", 1, 99, 8);
+  var sets    = clampInt("inSets", 1, 20, 1);
+  var setRest = clampInt("inSetRest", 10, 900, 120);
 
   ensureAudio();
   requestWakeLock();
 
-  var sched = buildSchedule(workSec, restSec, turns, rounds);
+  var sched = buildSchedule(workSec, restSec, turns, rounds, sets, setRest);
   timer.events = sched.events;
   timer.phases = sched.phases;
   timer.total = sched.total;
   timer.totalRounds = rounds;
+  timer.totalSets = sets;
   timer.turns = turns;
   timer.workSec = workSec;
   timer.startMs = Date.now();
@@ -615,7 +650,8 @@ function stopTimer(finished){
     box.className = "timerbox done";
     phaseLabel.textContent = "Fertig";
     bigTime.textContent = "✔";
-    subInfo.textContent = timer.totalRounds + " Intervalle abgeschlossen";
+    subInfo.textContent = (timer.totalRounds * timer.totalSets) + " Intervalle abgeschlossen"
+      + (timer.totalSets > 1 ? " (" + timer.totalSets + " Sets)" : "");
   } else {
     box.className = "timerbox idle";
     phaseLabel.textContent = "Gestoppt";
@@ -625,7 +661,7 @@ function stopTimer(finished){
 }
 
 function setInputsDisabled(dis){
-  var ids = ["inWork","inRest","inTurns","inRounds"];
+  var ids = ["inWork","inRest","inTurns","inRounds","inSets","inSetRest"];
   for (var i=0; i<ids.length; i++) document.getElementById(ids[i]).disabled = dis;
   var btns = document.querySelectorAll(".stepper button");
   for (var j=0; j<btns.length; j++) btns[j].disabled = dis;
