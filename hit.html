@@ -218,7 +218,6 @@
   tbody tr:nth-child(even){background:var(--grey);}
   tbody tr.marked{background:#fff3cd;}
   tbody tr.selected{background:var(--black);color:var(--white);font-weight:700;}
-  td.grafik{font-weight:800;}
   .table-hint{
     font-size:12px;
     color:var(--muted);
@@ -230,7 +229,7 @@
 <body>
 
 <header>
-  <div class="title">HIT-Intervall-Timer <span class="ver">v1.2</span></div>
+  <div class="title">HIT-Intervall-Timer <span class="ver">v1.3</span></div>
   <div class="subtitle">BEAR PERFORMANCE</div>
 </header>
 
@@ -317,7 +316,6 @@
       <table id="masTable">
         <thead>
           <tr>
-            <th>Grafik</th>
             <th>MAS km/h</th>
             <th>m/s + %</th>
             <th>m total (inkl %)</th>
@@ -329,7 +327,7 @@
       </table>
     </div>
     <div class="table-hint">
-      Zeile antippen zum Hervorheben. Gelb markiert = Grafik-Markierungen 1 (14&nbsp;km/h) und 2 (15&nbsp;km/h).
+      Zeile antippen zum Hervorheben. Gelb markiert = 14 und 15&nbsp;km/h.
     </div>
   </div>
 
@@ -360,7 +358,6 @@ function renderMasTable(){
   for (var i=0; i<MAS_ROWS.length; i++){
     var r = MAS_ROWS[i];
     html += '<tr class="' + (r.g ? 'marked' : '') + '" data-i="' + i + '">'
-         +  '<td class="grafik">' + r.g + '</td>'
          +  '<td>' + r.kmh + '</td>'
          +  '<td>' + r.ms + '</td>'
          +  '<td>' + r.total + '</td>'
