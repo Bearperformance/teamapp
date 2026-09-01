@@ -229,7 +229,7 @@
 <body>
 
 <header>
-  <div class="title">HIT-Intervall-Timer <span class="ver">v1.3</span></div>
+  <div class="title">HIT-Intervall-Timer <span class="ver">v1.4</span></div>
   <div class="subtitle">BEAR PERFORMANCE</div>
 </header>
 
@@ -246,6 +246,9 @@
   <div class="btnrow">
     <button id="startBtn">▶ Start</button>
     <button id="stopBtn" class="secondary" disabled>■ Stopp</button>
+  </div>
+  <div class="btnrow">
+    <button id="testBtn" class="secondary">🔊 Ton testen</button>
   </div>
 
   <!-- Einstellungen -->
@@ -305,7 +308,8 @@
       <b>Töne:</b> Hoher Ton = Start / Wende, tiefer Doppelton = Pause beginnt.
       Die letzten 3 Sekunden jeder Pause zählen mit 3 kurzen Tönen im Sekundentakt herunter.<br>
       Beispiel 30&nbsp;s / 2 Wendungen: Startsignal, Wendesignal nach 10&nbsp;s und 20&nbsp;s, Endsignal nach 30&nbsp;s.<br>
-      Bei mehreren Sets läuft nach dem letzten Intervall eines Sets die Satzpause statt der normalen Pause.
+      Bei mehreren Sets läuft nach dem letzten Intervall eines Sets die Satzpause statt der normalen Pause.<br>
+      <b>Kein Ton?</b> Einmal „🔊 Ton testen" drücken (entsperrt Audio auf iOS) und Lautstärke prüfen. Safari muss im Vordergrund bleiben.
     </div>
   </div>
 
@@ -383,11 +387,15 @@ renderMasTable();
 var audioCtx = null;
 
 function ensureAudio(){
+  // iOS 16.4+: Töne auch bei aktiviertem Stummschalter abspielen
+  try {
+    if ("audioSession" in navigator) navigator.audioSession.type = "playback";
+  } catch(e){}
   if (!audioCtx){
     var AC = window.AudioContext || window.webkitAudioContext;
     audioCtx = new AC();
   }
-  if (audioCtx.state === "suspended") audioCtx.resume();
+  if (audioCtx.state !== "running") audioCtx.resume();
   // iOS-Unlock: stummer Buffer abspielen
   try {
     var buf = audioCtx.createBuffer(1, 1, 22050);
@@ -400,6 +408,7 @@ function ensureAudio(){
 
 function playTone(freq, durMs, vol){
   if (!audioCtx) return;
+  if (audioCtx.state !== "running"){ try{ audioCtx.resume(); }catch(e){} }
   try {
     var osc = audioCtx.createOscillator();
     var gain = audioCtx.createGain();
@@ -461,7 +470,11 @@ function releaseWakeLock(){
   if (wakeLock){ try{ wakeLock.release(); }catch(e){} wakeLock = null; }
 }
 document.addEventListener("visibilitychange", function(){
-  if (document.visibilityState === "visible" && timer.running) requestWakeLock();
+  if (document.visibilityState === "visible"){
+    if (timer.running) requestWakeLock();
+    // iOS unterbricht den AudioContext beim App-Wechsel — wieder aufwecken
+    if (audioCtx && audioCtx.state !== "running"){ try{ audioCtx.resume(); }catch(e){} }
+  }
 });
 
 function clampInt(id, lo, hi, fallback){
@@ -690,6 +703,12 @@ document.addEventListener("click", function(ev){
 
 document.getElementById("startBtn").addEventListener("click", startTimer);
 document.getElementById("stopBtn").addEventListener("click", function(){ stopTimer(false); });
+document.getElementById("testBtn").addEventListener("click", function(){
+  ensureAudio();
+  toneCountdown();
+  setTimeout(toneWorkStart, 600);
+  setTimeout(tonePause, 1500);
+});
 </script>
 </body>
 </html>
