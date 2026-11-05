@@ -193,6 +193,24 @@
   .btnrow button.secondary{background:var(--white);color:var(--black);}
   .btnrow button:active{opacity:.7;}
   .btnrow button:disabled{opacity:.35;pointer-events:none;}
+  /* ---- Modus-Umschalter ---- */
+  .mode-switch{display:flex;gap:8px;margin-bottom:12px;}
+  .mode-switch button{
+    flex:1;
+    padding:12px 8px;
+    border:2px solid var(--black);
+    border-radius:10px;
+    background:var(--white);
+    color:var(--black);
+    font-family:inherit;
+    font-size:13px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    cursor:pointer;
+  }
+  .mode-switch button.active{background:var(--black);color:var(--white);}
+  .mode-switch button:disabled{opacity:.35;pointer-events:none;}
   /* ---- Tabelle ---- */
   .tablewrap{overflow-x:auto;}
   table{
@@ -229,7 +247,7 @@
 <body>
 
 <header>
-  <div class="title">HIT-Intervall-Timer <span class="ver">v1.4</span></div>
+  <div class="title">HIT-Intervall-Timer <span class="ver">v1.6</span></div>
   <div class="subtitle">BEAR PERFORMANCE</div>
 </header>
 
@@ -254,6 +272,10 @@
   <!-- Einstellungen -->
   <div class="card">
     <h2>Einstellungen</h2>
+    <div class="mode-switch">
+      <button type="button" id="modeClassic" class="active">Klassisch</button>
+      <button type="button" id="modeTeam">Team-HIT</button>
+    </div>
     <div class="settings-grid">
       <div class="set-field">
         <label for="inWork">Belastung (Sek.)</label>
@@ -263,7 +285,7 @@
           <button type="button" data-target="inWork" data-step="5">+</button>
         </div>
       </div>
-      <div class="set-field">
+      <div class="set-field" id="fieldRest">
         <label for="inRest">Pause (Sek.)</label>
         <div class="stepper">
           <button type="button" data-target="inRest" data-step="-5">−</button>
@@ -271,12 +293,20 @@
           <button type="button" data-target="inRest" data-step="5">+</button>
         </div>
       </div>
-      <div class="set-field">
+      <div class="set-field" id="fieldTurns">
         <label for="inTurns">Wenden</label>
         <div class="stepper">
           <button type="button" data-target="inTurns" data-step="-1">−</button>
           <input type="number" id="inTurns" inputmode="numeric" value="1" min="0" max="20">
           <button type="button" data-target="inTurns" data-step="1">+</button>
+        </div>
+      </div>
+      <div class="set-field" id="fieldGroup" style="display:none">
+        <label for="inGroup">Gruppengröße</label>
+        <div class="stepper">
+          <button type="button" data-target="inGroup" data-step="-1">−</button>
+          <input type="number" id="inGroup" inputmode="numeric" value="3" min="2" max="6">
+          <button type="button" data-target="inGroup" data-step="1">+</button>
         </div>
       </div>
       <div class="set-field">
@@ -305,10 +335,13 @@
       </div>
     </div>
     <div class="hint">
-      <b>Töne:</b> Hoher Ton = Start / Wende, tiefer Doppelton = Pause beginnt.
+      <b>Töne:</b> Hoher Ton = Start / Wende, tiefer Doppelton = Pause beginnt, mittlerer Doppelton = Halbzeit (Team-HIT).
       Die letzten 3 Sekunden jeder Pause zählen mit 3 kurzen Tönen im Sekundentakt herunter.<br>
       Beispiel 30&nbsp;s / 2 Wendungen: Startsignal, Wendesignal nach 10&nbsp;s und 20&nbsp;s, Endsignal nach 30&nbsp;s.<br>
       Bei mehreren Sets läuft nach dem letzten Intervall eines Sets die Satzpause statt der normalen Pause.<br>
+      <b>Team-HIT (z.&nbsp;B. 3er-Gruppen):</b> Durchgehende Intervalle ohne Pause — hoher Startton im eingestellten Takt (Belastung),
+      deutlich anderer mittlerer Doppelton zur Halbzeit. Einer läuft, die anderen pausieren; die Läufer-Anzeige rotiert durch die Gruppe.
+      Satzpause zwischen Sets funktioniert auch hier.<br>
       <b>Kein Ton?</b> Einmal „🔊 Ton testen" drücken (entsperrt Audio auf iOS) und Lautstärke prüfen. Safari muss im Vordergrund bleiben.
     </div>
   </div>
@@ -321,16 +354,24 @@
         <thead>
           <tr>
             <th>MAS km/h</th>
-            <th>m/s + %</th>
-            <th>m total (inkl %)</th>
-            <th>Teilstrecke (inkl %)</th>
+            <th>Klassisch (Teilstr.)</th>
+            <th>m/s</th>
+            <th>m total</th>
+            <th>Teilstrecke</th>
             <th>Markierung Ende</th>
           </tr>
         </thead>
         <tbody id="masBody"></tbody>
       </table>
     </div>
+    <div class="table-hint" id="masInfo"></div>
     <div class="table-hint">
+      Rechnung: effektive Laufzeit = Belastung − 0,7&nbsp;s je Wende. Distanz = Tempo × effektive Zeit,
+      Teilstrecke = Distanz / (Wenden + 1), Markierung Ende = Teilstrecke − 40&nbsp;m (Referenzlinie bei 40&nbsp;m).
+      Die Tabelle passt sich den Einstellungen oben automatisch an — auch im Team-HIT (Wenden zählen dort für die Meter;
+      die Töne bleiben Start + Halbzeit).<br>
+      <b>Klassisch (Teilstr.)</b> = gewohnter Standard (30&nbsp;s, 2 Wenden): Athlet, der klassisch 12&nbsp;km/h läuft = 30,0&nbsp;m.
+      Für eine höhere Intensität einfach die Markierung einer höheren Zeile zuweisen.
       Zeile antippen zum Hervorheben. Gelb markiert = 14 und 15&nbsp;km/h.
     </div>
   </div>
@@ -341,44 +382,61 @@
 "use strict";
 
 /* =========================================================
-   MAS-Tabelle
+   MAS-Tabelle — dynamisch aus Belastung + Wenden berechnet.
+   Jede Wende kostet 0,7 s effektive Laufzeit.
+   Markierung Ende relativ zur 40-m-Referenzlinie
+   (aus Originaltabelle: 16 km/h → Teilstrecke 40,0 → Markierung 0).
    ========================================================= */
-var MAS_ROWS = [
-  { g:"",  kmh:"12",   ms:"3,33", total:"90,0",  teil:"30,0", mark:"-10" },
-  { g:"",  kmh:"13",   ms:"3,61", total:"97,5",  teil:"32,5", mark:"-8"  },
-  { g:"1", kmh:"14",   ms:"3,89", total:"105,0", teil:"35,0", mark:"-5"  },
-  { g:"2", kmh:"15",   ms:"4,17", total:"112,5", teil:"37,5", mark:"-3"  },
-  { g:"",  kmh:"16",   ms:"4,44", total:"120,0", teil:"40,0", mark:"0"   },
-  { g:"",  kmh:"17",   ms:"4,72", total:"127,5", teil:"42,5", mark:"2"   },
-  { g:"",  kmh:"18",   ms:"5,00", total:"135,0", teil:"45,0", mark:"5"   },
-  { g:"",  kmh:"19",   ms:"5,28", total:"142,5", teil:"47,5", mark:"7"   },
-  { g:"",  kmh:"19,5", ms:"5,42", total:"146,3", teil:"48,8", mark:"8"   },
-  { g:"",  kmh:"20",   ms:"5,56", total:"150,0", teil:"50,0", mark:"10"  }
-];
+var MAS_SPEEDS = [12, 13, 14, 15, 16, 17, 18, 19, 19.5, 20];
+var TURN_PENALTY = 0.7;   // Sekunden je Wende
+var MARK_REF = 40;        // Referenzlinie in Metern
+
+function deNum(x, decimals){
+  return x.toFixed(decimals).replace(".", ",");
+}
 
 function renderMasTable(){
+  var work = parseInt(document.getElementById("inWork").value, 10);
+  var turns = parseInt(document.getElementById("inTurns").value, 10);
+  if (isNaN(work)) work = 30;
+  if (isNaN(turns) || turns < 0) turns = 0;
+  var eff = Math.max(1, work - TURN_PENALTY * turns);
+
   var body = document.getElementById("masBody");
   var html = "";
-  for (var i=0; i<MAS_ROWS.length; i++){
-    var r = MAS_ROWS[i];
-    html += '<tr class="' + (r.g ? 'marked' : '') + '" data-i="' + i + '">'
-         +  '<td>' + r.kmh + '</td>'
-         +  '<td>' + r.ms + '</td>'
-         +  '<td>' + r.total + '</td>'
-         +  '<td>' + r.teil + '</td>'
-         +  '<td>' + r.mark + '</td>'
+  for (var i=0; i<MAS_SPEEDS.length; i++){
+    var kmh = MAS_SPEEDS[i];
+    var ms = kmh / 3.6;
+    var total = ms * eff;
+    var teil = total / (turns + 1);
+    var mark = teil - MARK_REF;
+    // Klassischer Referenzwert aus der Original-Excel (30 s, 2 Wenden, 27 s effektiv):
+    // Teilstrecke klassisch = kmh / 3,6 * 27 / 3 = kmh * 2,5
+    var klassisch = kmh * 2.5;
+    html += '<tr class="' + (kmh === 14 || kmh === 15 ? 'marked' : '') + '">'
+         +  '<td>' + deNum(kmh, kmh % 1 ? 1 : 0) + '</td>'
+         +  '<td>' + deNum(klassisch, 1) + '</td>'
+         +  '<td>' + deNum(ms, 2) + '</td>'
+         +  '<td>' + deNum(total, 1) + '</td>'
+         +  '<td>' + deNum(teil, 1) + '</td>'
+         +  '<td>' + (mark >= 0 ? "+" : "") + deNum(mark, 1) + '</td>'
          +  '</tr>';
   }
   body.innerHTML = html;
-  body.addEventListener("click", function(ev){
-    var tr = ev.target.closest("tr");
-    if (!tr) return;
-    var wasSelected = tr.classList.contains("selected");
-    var rows = body.querySelectorAll("tr");
-    for (var j=0; j<rows.length; j++) rows[j].classList.remove("selected");
-    if (!wasSelected) tr.classList.add("selected");
-  });
+
+  document.getElementById("masInfo").innerHTML =
+    "<b>Aktuell:</b> " + work + " s Belastung − " + turns + " × 0,7 s Wende = "
+    + deNum(eff, 1) + " s effektive Laufzeit, " + (turns + 1) + " Teilstrecke" + (turns === 0 ? "" : "n") + ".";
 }
+
+document.getElementById("masBody").addEventListener("click", function(ev){
+  var tr = ev.target.closest("tr");
+  if (!tr) return;
+  var wasSelected = tr.classList.contains("selected");
+  var rows = this.querySelectorAll("tr");
+  for (var j=0; j<rows.length; j++) rows[j].classList.remove("selected");
+  if (!wasSelected) tr.classList.add("selected");
+});
 renderMasTable();
 
 /* =========================================================
@@ -431,6 +489,10 @@ function playTone(freq, durMs, vol){
 function toneCountdown(){ playTone(660, 150, 0.5); }             // 3x im Sekundentakt
 function toneWorkStart(){ playTone(880, 600, 0.6); }             // Start der Belastung
 function toneTurn(){      playTone(880, 300, 0.6); }             // Wendesignal
+function toneHalf(){                                             // Team-HIT: Halbzeit — mittlerer Doppelton
+  playTone(550, 150, 0.6);
+  setTimeout(function(){ playTone(550, 150, 0.6); }, 180);
+}
 function tonePause(){                                            // Ende Belastung / Pause: tiefer Doppelton
   playTone(330, 250, 0.6);
   setTimeout(function(){ playTone(330, 250, 0.6); }, 320);
@@ -455,6 +517,8 @@ var timer = {
   totalRounds:0,
   turns:0,
   workSec:0,
+  mode:"classic",
+  groupSize:3,
   intervalId:null
 };
 
@@ -485,7 +549,7 @@ function clampInt(id, lo, hi, fallback){
   return v;
 }
 
-function buildSchedule(workSec, restSec, turns, roundsPerSet, sets, setRestSec){
+function buildSchedule(workSec, restSec, turns, roundsPerSet, sets, setRestSec, mode){
   var events = [];
   var phases = [];
   var COUNTDOWN = 3;
@@ -507,8 +571,13 @@ function buildSchedule(workSec, restSec, turns, roundsPerSet, sets, setRestSec){
       // Belastung
       phases.push({ start:t, end:t + workSec, type:"work", round:r, set:s });
       events.push({ t: t, fn: toneWorkStart, fired:false });
-      for (var w = 1; w <= turns; w++){
-        events.push({ t: t + seg * w, fn: toneTurn, fired:false, turnIndex:w, round:r });
+      if (mode === "team"){
+        // Team-HIT: deutlich anderer Doppelton zur Halbzeit
+        events.push({ t: t + workSec / 2, fn: toneHalf, fired:false });
+      } else {
+        for (var w = 1; w <= turns; w++){
+          events.push({ t: t + seg * w, fn: toneTurn, fired:false, turnIndex:w, round:r });
+        }
       }
       t += workSec;
 
@@ -517,12 +586,16 @@ function buildSchedule(workSec, restSec, turns, roundsPerSet, sets, setRestSec){
       var lastInSet = (r === roundsPerSet);
       var lastSet = (s === sets);
       if (!lastInSet){
-        events.push({ t: t, fn: tonePause, fired:false });
-        for (var c2 = COUNTDOWN; c2 >= 1; c2--){
-          events.push({ t: t + restSec - c2, fn: toneCountdown, fired:false });
+        if (mode === "team"){
+          // Team-HIT: nahtlos weiter — der nächste Startton folgt direkt, keine Pause
+        } else {
+          events.push({ t: t, fn: tonePause, fired:false });
+          for (var c2 = COUNTDOWN; c2 >= 1; c2--){
+            events.push({ t: t + restSec - c2, fn: toneCountdown, fired:false });
+          }
+          phases.push({ start:t, end:t + restSec, type:"rest", round:r, set:s });
+          t += restSec;
         }
-        phases.push({ start:t, end:t + restSec, type:"rest", round:r, set:s });
-        t += restSec;
       } else if (!lastSet){
         events.push({ t: t, fn: tonePause, fired:false });
         for (var c3 = COUNTDOWN; c3 >= 1; c3--){
@@ -560,6 +633,11 @@ function fmtTime(sec){
 
 function renderTurnDots(elapsedInWork){
   var dots = document.getElementById("turnDots");
+  if (timer.mode === "team"){
+    // Ein Punkt, der sich zur Halbzeit füllt
+    dots.innerHTML = '<span class="' + (elapsedInWork >= timer.workSec / 2 ? 'hit' : '') + '"></span>';
+    return;
+  }
   if (timer.turns < 1){ dots.innerHTML = ""; return; }
   var seg = timer.workSec / (timer.turns + 1);
   var html = "";
@@ -605,8 +683,14 @@ function tick(){
   } else if (p.type === "work"){
     phaseLabel.textContent = "Belastung";
     bigTime.textContent = fmtTime(remaining);
-    subInfo.textContent = "Intervall " + p.round + " / " + timer.totalRounds + setSuffix
-      + (timer.turns > 0 ? " · " + timer.turns + " Wende" + (timer.turns > 1 ? "n" : "") : "");
+    if (timer.mode === "team"){
+      var runner = ((p.round - 1) % timer.groupSize) + 1;
+      subInfo.textContent = "Start " + p.round + " / " + timer.totalRounds + setSuffix
+        + " · Läufer " + runner + " / " + timer.groupSize;
+    } else {
+      subInfo.textContent = "Intervall " + p.round + " / " + timer.totalRounds + setSuffix
+        + (timer.turns > 0 ? " · " + timer.turns + " Wende" + (timer.turns > 1 ? "n" : "") : "");
+    }
     renderTurnDots(el - p.start);
   } else if (p.type === "rest"){
     phaseLabel.textContent = "Pause";
@@ -628,11 +712,14 @@ function startTimer(){
   var rounds  = clampInt("inRounds", 1, 99, 8);
   var sets    = clampInt("inSets", 1, 20, 1);
   var setRest = clampInt("inSetRest", 10, 900, 120);
+  var group   = clampInt("inGroup", 2, 6, 3);
 
   ensureAudio();
   requestWakeLock();
 
-  var sched = buildSchedule(workSec, restSec, turns, rounds, sets, setRest);
+  var sched = buildSchedule(workSec, restSec, turns, rounds, sets, setRest, uiMode);
+  timer.mode = uiMode;
+  timer.groupSize = group;
   timer.events = sched.events;
   timer.phases = sched.phases;
   timer.total = sched.total;
@@ -681,10 +768,12 @@ function stopTimer(finished){
 }
 
 function setInputsDisabled(dis){
-  var ids = ["inWork","inRest","inTurns","inRounds","inSets","inSetRest"];
+  var ids = ["inWork","inRest","inTurns","inRounds","inSets","inSetRest","inGroup"];
   for (var i=0; i<ids.length; i++) document.getElementById(ids[i]).disabled = dis;
   var btns = document.querySelectorAll(".stepper button");
   for (var j=0; j<btns.length; j++) btns[j].disabled = dis;
+  document.getElementById("modeClassic").disabled = dis;
+  document.getElementById("modeTeam").disabled = dis;
 }
 
 /* Stepper-Buttons */
@@ -699,7 +788,26 @@ document.addEventListener("click", function(ev){
   var lo = parseInt(input.min, 10);
   var hi = parseInt(input.max, 10);
   input.value = Math.max(lo, Math.min(hi, v));
+  renderMasTable();
 });
+
+/* Modus-Umschalter: Klassisch / Team-HIT */
+var uiMode = "classic";
+function setMode(m){
+  if (timer.running) return;
+  uiMode = m;
+  document.getElementById("modeClassic").classList.toggle("active", m === "classic");
+  document.getElementById("modeTeam").classList.toggle("active", m === "team");
+  document.getElementById("fieldRest").style.display = (m === "team") ? "none" : "";
+  // Wenden bleiben auch im Team-HIT sichtbar: sie steuern die Meter-Berechnung der Tabelle
+  document.getElementById("fieldGroup").style.display = (m === "team") ? "" : "none";
+}
+document.getElementById("modeClassic").addEventListener("click", function(){ setMode("classic"); });
+document.getElementById("modeTeam").addEventListener("click", function(){ setMode("team"); });
+
+/* Tabelle live an Einstellungen koppeln (auch bei Tastatur-Eingabe) */
+document.getElementById("inWork").addEventListener("input", renderMasTable);
+document.getElementById("inTurns").addEventListener("input", renderMasTable);
 
 document.getElementById("startBtn").addEventListener("click", startTimer);
 document.getElementById("stopBtn").addEventListener("click", function(){ stopTimer(false); });
