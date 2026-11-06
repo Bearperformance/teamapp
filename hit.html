@@ -249,7 +249,7 @@
 <body>
 
 <header>
-  <div class="title">HIT-Intervall-Timer <span class="ver">v1.7</span></div>
+  <div class="title">HIT-Intervall-Timer <span class="ver">v1.8</span></div>
   <div class="subtitle">BEAR PERFORMANCE</div>
 </header>
 
@@ -558,15 +558,18 @@ function clampInt(id, lo, hi, fallback){
   return v;
 }
 
-function buildSchedule(workSec, restSec, turns, roundsPerSet, sets, setRestSec, mode){
+function buildSchedule(workSec, restSec, turns, roundsPerSet, sets, setRestSec, mode, group){
   var events = [];
   var phases = [];
   var COUNTDOWN = 3;
   var t = 0;
   var seg = workSec / (turns + 1);
+  // Team-HIT: ein Intervall (Rep) zählt erst, wenn ALLE Läufer der Gruppe
+  // nacheinander gelaufen sind — pro Set also roundsPerSet × group Starts
+  var startsPerSet = (mode === "team") ? roundsPerSet * group : roundsPerSet;
 
   for (var s = 1; s <= sets; s++){
-    for (var r = 1; r <= roundsPerSet; r++){
+    for (var r = 1; r <= startsPerSet; r++){
       // Eigene Countdown-Phase nur vor der allerersten Belastung —
       // danach laufen die 3 Töne in den letzten Sekunden der Pause
       if (s === 1 && r === 1){
@@ -592,7 +595,7 @@ function buildSchedule(workSec, restSec, turns, roundsPerSet, sets, setRestSec, 
 
       // Ende der Belastung: Pause, Satzpause oder Finish
       // Countdown-Töne in den letzten 3 s der (Satz-)Pause
-      var lastInSet = (r === roundsPerSet);
+      var lastInSet = (r === startsPerSet);
       var lastSet = (s === sets);
       if (!lastInSet){
         if (mode === "team"){
@@ -694,8 +697,10 @@ function tick(){
     phaseLabel.textContent = "Belastung";
     bigTime.textContent = fmtTime(remaining);
     if (timer.mode === "team"){
+      // Ein Intervall (Rep) ist erst voll, wenn alle Läufer der Gruppe dran waren
+      var rep = Math.ceil(p.round / timer.groupSize);
       var runner = ((p.round - 1) % timer.groupSize) + 1;
-      subInfo.textContent = "Start " + p.round + " / " + timer.totalRounds + setSuffix
+      subInfo.textContent = "Intervall " + rep + " / " + timer.totalRounds + setSuffix
         + " · Läufer " + runner + " / " + timer.groupSize;
     } else {
       subInfo.textContent = "Intervall " + p.round + " / " + timer.totalRounds + setSuffix
@@ -727,7 +732,7 @@ function startTimer(){
   ensureAudio();
   requestWakeLock();
 
-  var sched = buildSchedule(workSec, restSec, turns, rounds, sets, setRest, uiMode);
+  var sched = buildSchedule(workSec, restSec, turns, rounds, sets, setRest, uiMode, group);
   timer.mode = uiMode;
   timer.groupSize = group;
   timer.events = sched.events;
