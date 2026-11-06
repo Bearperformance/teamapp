@@ -58,7 +58,7 @@ grep -c 'window.deleteTrainingFromCard' index.html   # muss 1 sein
 ```bash
 grep -c 'async function doLogin'        # muss 1 sein
 grep -c 'async function loadAll'        # muss 1 sein
-grep -c 'function getAccessTeamIds'     # muss 1 sein
+grep -cE '(function getAccessTeamIds|const getAccessTeamIds *=)'   # muss 1 sein (definiert als Arrow-Konstante)
 grep -c 'function renderDashboard'      # muss 1 sein
 ```
 
